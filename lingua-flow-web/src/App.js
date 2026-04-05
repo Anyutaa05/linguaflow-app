@@ -495,24 +495,48 @@ function FeedbackPanel({ correct, correctAnswer, onNext }: any) {
     </div>
   );
 }
-function ExChoice({ card, speakLang, allCards, onAnswer }: any) {
-  const [sel, setSel] = useState<string|null>(null);
-  const opts = useRef<string[]|null>(null);
-  if (!opts.current) { const d=shuf(allCards.filter((c:any)=>c.id!==card.id)).slice(0,3).map((c:any)=>c.uk); opts.current=shuf([card.uk,...d]); }
-  const pick = (opt: string) => { if(sel) return; setSel(opt); setTimeout(()=>onAnswer(opt===card.uk,card.uk),500); };
+function ExChoice({ card, speakLang, allCards, onAnswer }) {
+  const [sel, setSel] = useState(null);
+  const opts = useRef(null);
+
+  if (!opts.current) {
+    const d = shuf(allCards.filter((c) => c.id !== card.id))
+      .slice(0, 3)
+      .map((c) => c.uk);
+    opts.current = shuf([card.uk, ...d]);
+  }
+
+  const pick = (opt) => {
+    if (sel) return;
+    setSel(opt);
+    setTimeout(() => onAnswer(opt === card.uk, card.uk), 500);
+  };
+
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Оберіть переклад</p>
-      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:20, padding:"22px 20px", marginBottom:20, textAlign:"center" }}>
-        <div style={{ fontSize:36, fontWeight:900, color:"var(--text1)", marginBottom:6 }}>{card.en}</div>
-        <div style={{ color:"var(--text3)", fontSize:13, fontFamily:"'Space Mono',monospace" }}>{card.transcription}</div>
-        <button onClick={()=>speak(card.en,speakLang)} style={{ marginTop:12, background:"var(--blue)22", border:"1px solid var(--blue)44", color:"var(--blue)", borderRadius:10, padding:"7px 16px", cursor:"pointer", fontSize:13, fontWeight:700 }}>🔊 Вимова</button>
+    <div style={{ animation: "popIn .3s ease", width: "100%" }}>
+      <p style={{ color: "var(--text2)", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
+        Оберіть переклад
+      </p>
+      <div style={{ background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: 20, padding: "22px 20px", marginBottom: 20, textAlign: "center" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: "var(--text1)", marginBottom: 6 }}>{card.en}</div>
+        <div style={{ color: "var(--text3)", fontSize: 13, fontFamily: "'Space Mono',monospace" }}>{card.transcription}</div>
+        <button onClick={() => speak(card.en, speakLang)} style={{ marginTop: 12, background: "var(--blue)22", border: "1px solid var(--blue)44", color: "var(--blue)", borderRadius: 10, padding: "7px 16px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+          🔊 Вимова
+        </button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {opts.current.map(opt => {
-          let bg="var(--bg3)",border="1px solid var(--border)",color="var(--text1)";
-          if(sel===opt){bg=opt===card.uk?"#16a34a33":"#dc262633";border=`1px solid ${opt===card.uk?"var(--green)":"var(--red)"}`;color=opt===card.uk?"var(--green)":"var(--red)";}
-          return <button key={opt} onClick={()=>pick(opt)} style={{ background:bg,border,color,borderRadius:14,padding:"16px 10px",fontWeight:800,fontSize:14,cursor:"pointer",transition:"all .15s", lineHeight:1.3 }}>{opt}</button>;
+          let bg = "var(--bg3)", border = "1px solid var(--border)", color = "var(--text1)";
+          if (sel === opt) {
+            bg = opt === card.uk ? "#16a34a33" : "#dc262633";
+            border = `1px solid ${opt === card.uk ? "var(--green)" : "var(--red)"}`;
+            color = opt === card.uk ? "var(--green)" : "var(--red)";
+          }
+          return (
+            <button key={opt} onClick={() => pick(opt)} style={{ background: bg, border, color, borderRadius: 14, padding: "16px 10px", fontWeight: 800, fontSize: 14, cursor: "pointer", transition: "all .15s", lineHeight: 1.3 }}>
+              {opt}
+            </button>
+          );
         })}
       </div>
     </div>
