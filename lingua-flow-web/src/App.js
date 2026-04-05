@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Nunito',sans-serif;background:#0f0f14;color:#f0f0f5;overflow-x:hidden;}
+html{-webkit-text-size-adjust:100%;}
+body{font-family:'Nunito',sans-serif;background:#0f0f14;color:#f0f0f5;overflow-x:hidden;-webkit-tap-highlight-color:transparent;}
 :root{
   --green:#4ade80;--green-dark:#16a34a;--green-glow:rgba(74,222,128,0.3);
   --blue:#38bdf8;--blue-dark:#0284c7;
@@ -12,6 +12,9 @@ body{font-family:'Nunito',sans-serif;background:#0f0f14;color:#f0f0f5;overflow-x
   --bg:#0f0f14;--bg2:#1a1a24;--bg3:#22222f;--bg4:#2a2a3a;
   --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
   --text1:#f0f0f5;--text2:#9090a8;--text3:#5a5a70;
+  --nav-h:64px;
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
+  --safe-top:env(safe-area-inset-top, 0px);
 }
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes popIn{0%{transform:scale(.85);opacity:0}65%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
@@ -35,11 +38,21 @@ input:focus,textarea:focus{outline:none;}
 .typing-dot:nth-child(2){animation-delay:.2s;}
 .typing-dot:nth-child(3){animation-delay:.4s;}
 .star-pop{animation:starPop .4s cubic-bezier(.4,0,.2,1) forwards;}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.scroll-x::-webkit-scrollbar{display:none;}
+.scroll-y{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+/* Mobile-first grid tweaks */
+@media(max-width:380px){
+  .modes-grid{grid-template-columns:1fr 1fr!important;}
+  .stats-grid{grid-template-columns:repeat(3,1fr)!important;}
+}
+@media(min-width:600px){
+  .main-container{max-width:600px;margin:0 auto;}
+  .session-container{max-width:520px;margin:0 auto;}
+}
 `;
-
 // ─── API BASE URL ─────────────────────────────────────────────────────────────
 const API_URL = "http://localhost:8080/api";
-
 // ─── SRS ─────────────────────────────────────────────────────────────────────
 const SRS = {
   nextReview(card, quality) {
@@ -68,10 +81,8 @@ const SRS = {
     return cards.filter(c => { if (!c.srs) return false; const t = c.srs.nextReview - Date.now(); return t > 0 && t < 3600000 * 4; });
   }
 };
-
-// ─── ENGLISH WORDS DATABASE (~800 words) ─────────────────────────────────────
+// ─── ENGLISH WORDS DATABASE ────────────────────────────────────────────────
 const EN_WORDS = [
-  // A1 - Basics
   {id:"a1_1",en:"Hello",uk:"Привіт",transcription:"/həˈloʊ/",example:"Hello! How are you?",tag:"basics",level:"A1"},
   {id:"a1_2",en:"Goodbye",uk:"До побачення",transcription:"/ˌɡʊdˈbaɪ/",example:"Goodbye! See you tomorrow.",tag:"basics",level:"A1"},
   {id:"a1_3",en:"Yes",uk:"Так",transcription:"/jes/",example:"Yes, I understand.",tag:"basics",level:"A1"},
@@ -132,8 +143,6 @@ const EN_WORDS = [
   {id:"a1_58",en:"Green",uk:"Зелений",transcription:"/ɡriːn/",example:"Grass is green.",tag:"adjectives",level:"A1"},
   {id:"a1_59",en:"Bus",uk:"Автобус",transcription:"/bʌs/",example:"Take the bus to school.",tag:"transport",level:"A1"},
   {id:"a1_60",en:"Tree",uk:"Дерево",transcription:"/triː/",example:"There is a big tree in the garden.",tag:"nature",level:"A1"},
-
-  // A2
   {id:"a2_1",en:"Airport",uk:"Аеропорт",transcription:"/ˈeə.pɔːt/",example:"We arrived at the airport early.",tag:"travel",level:"A2"},
   {id:"a2_2",en:"Ticket",uk:"Квиток",transcription:"/ˈtɪk.ɪt/",example:"I need a ticket to London.",tag:"travel",level:"A2"},
   {id:"a2_3",en:"Hotel",uk:"Готель",transcription:"/həʊˈtel/",example:"The hotel has a nice view.",tag:"travel",level:"A2"},
@@ -194,8 +203,6 @@ const EN_WORDS = [
   {id:"a2_58",en:"Plate",uk:"Тарілка",transcription:"/pleɪt/",example:"Put it on the plate.",tag:"home",level:"A2"},
   {id:"a2_59",en:"Cup",uk:"Чашка",transcription:"/kʌp/",example:"I want a cup of tea.",tag:"home",level:"A2"},
   {id:"a2_60",en:"Kitchen",uk:"Кухня",transcription:"/ˈkɪtʃ.ɪn/",example:"She is cooking in the kitchen.",tag:"home",level:"A2"},
-
-  // B1
   {id:"b1_1",en:"Deadline",uk:"Дедлайн",transcription:"/ˈded.laɪn/",example:"We must meet the deadline.",tag:"business",level:"B1"},
   {id:"b1_2",en:"Revenue",uk:"Дохід",transcription:"/ˈrev.ə.njuː/",example:"Revenue increased by 20%.",tag:"business",level:"B1"},
   {id:"b1_3",en:"Meeting",uk:"Зустріч",transcription:"/ˈmiː.tɪŋ/",example:"The meeting starts at 10am.",tag:"business",level:"B1"},
@@ -256,8 +263,6 @@ const EN_WORDS = [
   {id:"b1_58",en:"Excited",uk:"Збуджений",transcription:"/ɪkˈsaɪ.tɪd/",example:"She is excited about the trip.",tag:"emotions",level:"B1"},
   {id:"b1_59",en:"Surprised",uk:"Здивований",transcription:"/səˈpraɪzd/",example:"I was surprised by the news.",tag:"emotions",level:"B1"},
   {id:"b1_60",en:"Relieved",uk:"Полегшений",transcription:"/rɪˈliːvd/",example:"I felt relieved when it was over.",tag:"emotions",level:"B1"},
-
-  // B2
   {id:"b2_1",en:"Sophisticated",uk:"Витончений",transcription:"/səˈfɪs.tɪ.keɪ.tɪd/",example:"She has sophisticated taste.",tag:"adjectives",level:"B2"},
   {id:"b2_2",en:"Ambiguous",uk:"Неоднозначний",transcription:"/æmˈbɪɡ.ju.əs/",example:"The message was ambiguous.",tag:"adjectives",level:"B2"},
   {id:"b2_3",en:"Inevitable",uk:"Неминучий",transcription:"/ɪnˈev.ɪ.tə.bəl/",example:"Change is inevitable.",tag:"adjectives",level:"B2"},
@@ -288,8 +293,6 @@ const EN_WORDS = [
   {id:"b2_28",en:"Objective",uk:"Об'єктивний",transcription:"/əbˈdʒek.tɪv/",example:"Try to be objective here.",tag:"adjectives",level:"B2"},
   {id:"b2_29",en:"Substantial",uk:"Суттєвий",transcription:"/səbˈstæn.ʃəl/",example:"A substantial improvement was made.",tag:"adjectives",level:"B2"},
   {id:"b2_30",en:"Controversial",uk:"Суперечливий",transcription:"/ˌkɒn.trəˈvɜː.ʃəl/",example:"This is a controversial topic.",tag:"adjectives",level:"B2"},
-
-  // C1
   {id:"c1_1",en:"Ubiquitous",uk:"Повсюдний",transcription:"/juːˈbɪk.wɪ.təs/",example:"Smartphones are ubiquitous.",tag:"adjectives",level:"C1"},
   {id:"c1_2",en:"Clandestine",uk:"Таємний",transcription:"/klænˈdes.tɪn/",example:"A clandestine operation.",tag:"adjectives",level:"C1"},
   {id:"c1_3",en:"Nuanced",uk:"Нюансований",transcription:"/ˈnjuː.ɑːnst/",example:"A nuanced argument.",tag:"adjectives",level:"C1"},
@@ -306,7 +309,6 @@ const EN_WORDS = [
   {id:"c1_14",en:"Tangential",uk:"Дотичний",transcription:"/tænˈdʒen.ʃəl/",example:"That point is tangential to the main topic.",tag:"adjectives",level:"C1"},
   {id:"c1_15",en:"Corroborate",uk:"Підтверджувати",transcription:"/kəˈrɒb.ə.reɪt/",example:"Evidence corroborated her story.",tag:"basics",level:"C1"},
 ];
-
 const ES_WORDS = [
   {id:"es_1",en:"Hola",uk:"Привіт",transcription:"/ˈo.la/",example:"¡Hola! ¿Cómo estás?",tag:"basics",level:"A1"},
   {id:"es_2",en:"Adiós",uk:"До побачення",transcription:"/a.ˈðjos/",example:"¡Adiós! Hasta mañana.",tag:"basics",level:"A1"},
@@ -319,9 +321,7 @@ const ES_WORDS = [
   {id:"es_9",en:"Perro",uk:"Собака",transcription:"/ˈpe.ro/",example:"El perro es muy simpático.",tag:"animals",level:"A1"},
   {id:"es_10",en:"Gato",uk:"Кіт",transcription:"/ˈɡa.to/",example:"El gato duerme todo el día.",tag:"animals",level:"A1"},
 ];
-
-const WORDS_BY_LANG = { en: EN_WORDS, es: ES_WORDS };
-
+const WORDS_BY_LANG: Record<string, typeof EN_WORDS> = { en: EN_WORDS, es: ES_WORDS };
 // ─── LESSONS ──────────────────────────────────────────────────────────────────
 const EN_LESSONS = [
   { id:"l1", title:"Привітання", emoji:"👋", level:"A1", wordIds:["a1_1","a1_2","a1_3","a1_4","a1_5","a1_6","a1_7","a1_8"], desc:"Перші слова та ввічливість", vibe:"Почни з нуля — і вже через 5 хвилин не соромитись сказати 'hello'" },
@@ -351,7 +351,6 @@ const EN_LESSONS = [
   { id:"l25", title:"Складні прикметники", emoji:"💎", level:"C1", wordIds:["c1_1","c1_2","c1_3","c1_6","c1_11"], desc:"Рідкісні та точні слова", vibe:"C1 — це коли кожне слово влучає в ціль" },
   { id:"l26", title:"Дієслова C1", emoji:"⚡", level:"C1", wordIds:["c1_9","c1_10","c1_12","c1_15","b2_5","b2_23"], desc:"Дієслова для досвідчених", vibe:"Коли 'зробити' вже не вистачає" },
 ];
-
 const TAGS = [
   { id:"all", label:"Всі", emoji:"📚" },
   { id:"basics", label:"Основи", emoji:"💬" },
@@ -367,7 +366,6 @@ const TAGS = [
   { id:"time", label:"Час", emoji:"⏰" },
   { id:"custom", label:"Мої слова", emoji:"⭐" },
 ];
-
 const GOALS = [
   { id:"travel", label:"Подорожі", emoji:"✈️", desc:"Впевнено подорожувати світом" },
   { id:"work", label:"Робота", emoji:"💼", desc:"Кар'єра та ділове спілкування" },
@@ -376,9 +374,7 @@ const GOALS = [
   { id:"move", label:"Переїзд", emoji:"🏠", desc:"Жити за кордоном" },
   { id:"chat", label:"Спілкування", emoji:"💬", desc:"Друзі та соцмережі" },
 ];
-
 const LEVELS = ["A1","A2","B1","B2","C1"];
-
 const SCENARIOS = [
   { id:"coffee", emoji:"☕", label:"Замовити каву", prompt:"Навчи мене замовляти каву в англомовному кафе. Дай типові фрази і зроби зі мною рольову гру." },
   { id:"meet", emoji:"👋", label:"Знайомство", prompt:"Навчи мене знайомитися з людьми англійською. Дай фрази для small talk." },
@@ -389,8 +385,7 @@ const SCENARIOS = [
   { id:"doctor", emoji:"🏥", label:"У лікаря", prompt:"Навчи мене описувати симптоми лікарю англійською." },
   { id:"airport", emoji:"✈️", label:"Аеропорт", prompt:"Навчи мене всьому в аеропорту — check-in, митниця, gate." },
 ];
-
-const TOXIC_MESSAGES = {
+const TOXIC_MESSAGES: Record<string, string[]> = {
   noStreak: ["Ти взагалі вчишся? 😑", "Дні йдуть, а додаток пилиться... 🙃", "Навіть слимак рухається швидше.", "Серйозно? Знову пропустив?"],
   streak3: ["3 дні підряд? Окей, вже щось 🤏", "Непогано для початку.", "3 дні — це як прогріватись перед тренуванням."],
   streak7: ["Тиждень! Ти вже не безнадійний 😄", "7 днів підряд. Мама була б горда.", "Тиждень без зупинки!"],
@@ -398,38 +393,32 @@ const TOXIC_MESSAGES = {
   forgetting: ["Ей, ти МАЙЖЕ забув це слово 😏 Рятуй!", "Твій мозок вже готовий викинути це...", "Це слово тебе забуде першим."],
   weakWords: ["Ці слова тебе ненавидять. Взаємно? 😒", "Знову ті самі помилки. Класика.", "Слабкі слова = слабкі місця 💀"],
 };
-const getToxicMsg = (type) => { const m = TOXIC_MESSAGES[type]||["..."]; return m[Math.floor(Math.random()*m.length)]; };
-
+const getToxicMsg = (type: string) => { const m = TOXIC_MESSAGES[type]||["..."]; return m[Math.floor(Math.random()*m.length)]; };
 const LANGUAGES = [
   { id:"en", name:"Англійська", flag:"🇺🇸", native:"English", speakLang:"en-US" },
   { id:"es", name:"Іспанська", flag:"🇪🇸", native:"Español", speakLang:"es-ES" },
 ];
-
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const SAVE_KEY = "lf_v5";
-const loadData = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } };
-const saveData = d => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch {} };
-
-const shuf = a => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; };
-const speak = (text, lang="en-US", rate=0.85) => { if(!window.speechSynthesis) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate; window.speechSynthesis.speak(u); };
+const loadData = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "{}") || {}; } catch { return {}; } };
+const saveData = (d: any) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch {} };
+const shuf = <T,>(a: T[]): T[] => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; };
+const speak = (text: string, lang="en-US", rate=0.85) => { if(!window.speechSynthesis) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate; window.speechSynthesis.speak(u); };
 const getDayKey = () => new Date().toISOString().split("T")[0];
-const calcStreak = (history) => {
+const calcStreak = (history: string[]) => {
   if (!history || !history.length) return 0;
   const days = [...new Set(history)].sort().reverse();
   const today = getDayKey();
   const yesterday = new Date(Date.now()-86400000).toISOString().split("T")[0];
   if (days[0]!==today && days[0]!==yesterday) return 0;
   let streak=1;
-  for (let i=1;i<days.length;i++) { if((new Date(days[i-1])-new Date(days[i]))/86400000===1) streak++; else break; }
+  for (let i=1;i<days.length;i++) { if((new Date(days[i-1]).getTime()-new Date(days[i]).getTime())/86400000===1) streak++; else break; }
   return streak;
 };
-
-// ─── ВБУДОВАНИЙ БЕЗКОШТОВНИЙ AI-СИМУЛЯТОР (ЗАМІСТЬ ПЛАТНОГО API) ─────────────
-const simulateAI = async (messages, systemPrompt, langName) => {
-  return new Promise(resolve => {
+const simulateAI = async (messages: any[], _: any, langName: string) => {
+  return new Promise<string>(resolve => {
     setTimeout(() => {
       const lastMsg = messages[messages.length - 1].content.toLowerCase();
-
       if (lastMsg.includes("кава") || lastMsg.includes("каву")) {
         resolve(`Ось як замовити каву ${langName} як місцевий 😎:\n\n1. "Can I get a large cappuccino, please?"\n2. "I'll have an iced latte with oat milk."\n\nДавай зіграємо! Я бариста: "Hi! What can I get for you today?"`);
       } else if (lastMsg.includes("флірт") || lastMsg.includes("фліртувати")) {
@@ -444,18 +433,16 @@ const simulateAI = async (messages, systemPrompt, langName) => {
     }, 1500);
   });
 };
-
 // ─── MICRO COMPONENTS ─────────────────────────────────────────────────────────
-function GlowBtn({ children, onClick, disabled, color="var(--green)", style={} }) {
+function GlowBtn({ children, onClick, disabled, color="var(--green)", style={} }: any) {
   return (
     <button onClick={onClick} disabled={disabled} className="btn-press"
-      style={{ background:disabled?"var(--bg4)":color, color:disabled?"var(--text3)":"#000", border:"none", borderRadius:16, padding:"16px 28px", fontFamily:"'Nunito',sans-serif", fontWeight:900, fontSize:15, cursor:disabled?"default":"pointer", transition:"all .2s", boxShadow:disabled?"none":`0 0 20px ${color}55, 0 4px 0 ${color}88`, letterSpacing:.5, ...style }}>
+      style={{ background:disabled?"var(--bg4)":color, color:disabled?"var(--text3)":"#000", border:"none", borderRadius:16, padding:"15px 24px", fontFamily:"'Nunito',sans-serif", fontWeight:900, fontSize:15, cursor:disabled?"default":"pointer", transition:"all .2s", boxShadow:disabled?"none":`0 0 20px ${color}55, 0 4px 0 ${color}88`, letterSpacing:.5, ...style }}>
       {children}
     </button>
   );
 }
-
-function ProgressBar({ value, max, color="var(--green)", h=8 }) {
+function ProgressBar({ value, max, color="var(--green)", h=8 }: any) {
   const pct = Math.min(100, Math.max(0, max>0?(value/max)*100:0));
   return (
     <div style={{ width:"100%", height:h, background:"var(--bg4)", borderRadius:h, overflow:"hidden" }}>
@@ -463,24 +450,21 @@ function ProgressBar({ value, max, color="var(--green)", h=8 }) {
     </div>
   );
 }
-
-function Tag({ tag, selected, onClick }) {
+function Tag({ tag, selected, onClick }: any) {
   const t = TAGS.find(t=>t.id===tag)||{label:tag,emoji:"🏷️"};
   return (
-    <button onClick={onClick} style={{ background:selected?"var(--green)":"var(--bg3)", color:selected?"#000":"var(--text2)", border:`1px solid ${selected?"var(--green)":"var(--border)"}`, borderRadius:20, padding:"6px 14px", fontSize:13, fontWeight:700, cursor:"pointer", transition:"all .15s", whiteSpace:"nowrap" }}>
+    <button onClick={onClick} style={{ background:selected?"var(--green)":"var(--bg3)", color:selected?"#000":"var(--text2)", border:`1px solid ${selected?"var(--green)":"var(--border)"}`, borderRadius:20, padding:"6px 12px", fontSize:12, fontWeight:700, cursor:"pointer", transition:"all .15s", whiteSpace:"nowrap", flexShrink:0 }}>
       {t.emoji} {t.label}
     </button>
   );
 }
-
-function SRSBadge({ card }) {
+function SRSBadge({ card }: any) {
   const level = SRS.getLevel(card);
-  const config = { new:{label:"Нове",color:"var(--blue)"}, learning:{label:"Вивчаю",color:"var(--orange)"}, reviewing:{label:"Повторення",color:"var(--purple)"}, mastered:{label:"Засвоєно",color:"var(--green)"} }[level];
-  return <span style={{ background:`${config.color}22`, color:config.color, border:`1px solid ${config.color}44`, borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:800 }}>{config.label}</span>;
+  const config: any = { new:{label:"Нове",color:"var(--blue)"}, learning:{label:"Вивчаю",color:"var(--orange)"}, reviewing:{label:"Повторення",color:"var(--purple)"}, mastered:{label:"Засвоєно",color:"var(--green)"} }[level];
+  return <span style={{ background:`${config.color}22`, color:config.color, border:`1px solid ${config.color}44`, borderRadius:8, padding:"2px 6px", fontSize:10, fontWeight:800 }}>{config.label}</span>;
 }
-
-function ToxicBanner({ streak, almostForgotten, weakCards }) {
-  const [msg, setMsg] = useState(null);
+function ToxicBanner({ streak, almostForgotten, weakCards }: any) {
+  const [msg, setMsg] = useState<string|null>(null);
   const [type, setType] = useState("neutral");
   useEffect(() => {
     if (almostForgotten.length > 0) { setMsg(`⚡ "${almostForgotten[0].en}" — ${getToxicMsg("forgetting")}`); setType("warning"); }
@@ -491,188 +475,178 @@ function ToxicBanner({ streak, almostForgotten, weakCards }) {
     else if (weakCards.length > 0) { setMsg(getToxicMsg("weakWords")); setType("toxic"); }
   }, [streak, almostForgotten.length, weakCards.length]);
   if (!msg) return null;
-  const colors = { toxic:{bg:"var(--red)11",border:"var(--red)33",text:"var(--red)"}, warning:{bg:"var(--orange)11",border:"var(--orange)33",text:"var(--orange)"}, hype:{bg:"var(--green)11",border:"var(--green)33",text:"var(--green)"}, ok:{bg:"var(--blue)11",border:"var(--blue)33",text:"var(--blue)"}, neutral:{bg:"var(--bg3)",border:"var(--border)",text:"var(--text2)"} }[type];
+  const colors: any = { toxic:{bg:"var(--red)11",border:"var(--red)33",text:"var(--red)"}, warning:{bg:"var(--orange)11",border:"var(--orange)33",text:"var(--orange)"}, hype:{bg:"var(--green)11",border:"var(--green)33",text:"var(--green)"}, ok:{bg:"var(--blue)11",border:"var(--blue)33",text:"var(--blue)"}, neutral:{bg:"var(--bg3)",border:"var(--border)",text:"var(--text2)"} }[type];
   return (
-    <div style={{ background:colors.bg, border:`1px solid ${colors.border}`, borderRadius:16, padding:"12px 16px", marginBottom:16, animation:"toxicPulse 3s ease infinite" }}>
-      <span style={{ color:colors.text, fontWeight:800, fontSize:14 }}>{msg}</span>
+    <div style={{ background:colors.bg, border:`1px solid ${colors.border}`, borderRadius:14, padding:"11px 14px", marginBottom:14, animation:"toxicPulse 3s ease infinite" }}>
+      <span style={{ color:colors.text, fontWeight:800, fontSize:13 }}>{msg}</span>
     </div>
   );
 }
-
-function FeedbackPanel({ correct, correctAnswer, onNext }) {
+function FeedbackPanel({ correct, correctAnswer, onNext }: any) {
   return (
-    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:300, background:correct?"rgba(20,40,20,.98)":"rgba(40,15,15,.98)", borderTop:`3px solid ${correct?"var(--green)":"var(--red)"}`, padding:"20px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", animation:"slideUp .22s ease", backdropFilter:"blur(20px)" }}>
+    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:300, background:correct?"rgba(20,40,20,.98)":"rgba(40,15,15,.98)", borderTop:`3px solid ${correct?"var(--green)":"var(--red)"}`, padding:"16px 20px", paddingBottom:"calc(16px + var(--safe-bottom))", display:"flex", alignItems:"center", justifyContent:"space-between", animation:"slideUp .22s ease", backdropFilter:"blur(20px)" }}>
       <div>
-        <div style={{ fontWeight:900, fontSize:20, color:correct?"var(--green)":"var(--red)", marginBottom:2 }}>{correct?"✓ Правильно!":"✗ Неправильно"}</div>
-        {!correct && <div style={{ color:"var(--text2)", fontSize:14 }}>Правильно: <b style={{color:"var(--text1)"}}>{correctAnswer}</b></div>}
+        <div style={{ fontWeight:900, fontSize:18, color:correct?"var(--green)":"var(--red)", marginBottom:2 }}>{correct?"✓ Правильно!":"✗ Неправильно"}</div>
+        {!correct && <div style={{ color:"var(--text2)", fontSize:13 }}>Правильно: <b style={{color:"var(--text1)"}}>{correctAnswer}</b></div>}
       </div>
-      <button onClick={onNext} style={{ background:correct?"var(--green)":"var(--red)", color:"#000", border:"none", borderRadius:14, padding:"14px 28px", fontWeight:900, fontSize:15, cursor:"pointer" }}>
+      <button onClick={onNext} style={{ background:correct?"var(--green)":"var(--red)", color:"#000", border:"none", borderRadius:14, padding:"13px 22px", fontWeight:900, fontSize:14, cursor:"pointer" }}>
         ДАЛІ →
       </button>
     </div>
   );
 }
-
-function ExChoice({ card, speakLang, allCards, onAnswer }) {
-  const [sel, setSel] = useState(null);
-  const opts = useRef(null);
-  if (!opts.current) { const d=shuf(allCards.filter(c=>c.id!==card.id)).slice(0,3).map(c=>c.uk); opts.current=shuf([card.uk,...d]); }
-  const pick = opt => { if(sel) return; setSel(opt); setTimeout(()=>onAnswer(opt===card.uk,card.uk),500); };
+function ExChoice({ card, speakLang, allCards, onAnswer }: any) {
+  const [sel, setSel] = useState<string|null>(null);
+  const opts = useRef<string[]|null>(null);
+  if (!opts.current) { const d=shuf(allCards.filter((c:any)=>c.id!==card.id)).slice(0,3).map((c:any)=>c.uk); opts.current=shuf([card.uk,...d]); }
+  const pick = (opt: string) => { if(sel) return; setSel(opt); setTimeout(()=>onAnswer(opt===card.uk,card.uk),500); };
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%", maxWidth:480, margin:"0 auto" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:1, marginBottom:20 }}>Оберіть переклад</p>
-      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:24, padding:"28px", marginBottom:28, textAlign:"center" }}>
-        <div style={{ fontSize:40, fontWeight:900, color:"var(--text1)", marginBottom:8 }}>{card.en}</div>
-        <div style={{ color:"var(--text3)", fontSize:14, fontFamily:"'Space Mono',monospace" }}>{card.transcription}</div>
-        <button onClick={()=>speak(card.en,speakLang)} style={{ marginTop:14, background:"var(--blue)22", border:"1px solid var(--blue)44", color:"var(--blue)", borderRadius:10, padding:"8px 18px", cursor:"pointer", fontSize:14, fontWeight:700 }}>🔊 Вимова</button>
+    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
+      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Оберіть переклад</p>
+      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:20, padding:"22px 20px", marginBottom:20, textAlign:"center" }}>
+        <div style={{ fontSize:36, fontWeight:900, color:"var(--text1)", marginBottom:6 }}>{card.en}</div>
+        <div style={{ color:"var(--text3)", fontSize:13, fontFamily:"'Space Mono',monospace" }}>{card.transcription}</div>
+        <button onClick={()=>speak(card.en,speakLang)} style={{ marginTop:12, background:"var(--blue)22", border:"1px solid var(--blue)44", color:"var(--blue)", borderRadius:10, padding:"7px 16px", cursor:"pointer", fontSize:13, fontWeight:700 }}>🔊 Вимова</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         {opts.current.map(opt => {
           let bg="var(--bg3)",border="1px solid var(--border)",color="var(--text1)";
           if(sel===opt){bg=opt===card.uk?"#16a34a33":"#dc262633";border=`1px solid ${opt===card.uk?"var(--green)":"var(--red)"}`;color=opt===card.uk?"var(--green)":"var(--red)";}
-          return <button key={opt} onClick={()=>pick(opt)} style={{ background:bg,border,color,borderRadius:14,padding:"18px 12px",fontWeight:800,fontSize:15,cursor:"pointer",transition:"all .15s" }}>{opt}</button>;
+          return <button key={opt} onClick={()=>pick(opt)} style={{ background:bg,border,color,borderRadius:14,padding:"16px 10px",fontWeight:800,fontSize:14,cursor:"pointer",transition:"all .15s", lineHeight:1.3 }}>{opt}</button>;
         })}
       </div>
     </div>
   );
 }
-
-function ExTypeAnswer({ card, speakLang, onAnswer }) {
+function ExTypeAnswer({ card, speakLang, onAnswer }: any) {
   const [val, setVal] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const check = () => { if(!val.trim()||submitted) return; setSubmitted(true); setTimeout(()=>onAnswer(val.trim().toLowerCase()===card.uk.toLowerCase(),card.uk),400); };
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%", maxWidth:480, margin:"0 auto" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:1, marginBottom:20 }}>Введіть переклад</p>
-      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:24, padding:"28px", marginBottom:28, textAlign:"center" }}>
-        <div style={{ fontSize:40, fontWeight:900, marginBottom:8 }}>{card.en}</div>
-        <div style={{ color:"var(--text3)", fontSize:14, fontFamily:"'Space Mono',monospace", marginBottom:12 }}>{card.transcription}</div>
-        <div style={{ color:"var(--text2)", fontSize:14, fontStyle:"italic" }}>{card.example}</div>
-        <button onClick={()=>speak(card.en,speakLang)} style={{ marginTop:14, background:"var(--blue)22", border:"1px solid var(--blue)44", color:"var(--blue)", borderRadius:10, padding:"8px 18px", cursor:"pointer", fontSize:14, fontWeight:700 }}>🔊 Вимова</button>
+    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
+      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Введіть переклад</p>
+      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:20, padding:"22px 20px", marginBottom:20, textAlign:"center" }}>
+        <div style={{ fontSize:36, fontWeight:900, marginBottom:6 }}>{card.en}</div>
+        <div style={{ color:"var(--text3)", fontSize:13, fontFamily:"'Space Mono',monospace", marginBottom:10 }}>{card.transcription}</div>
+        <div style={{ color:"var(--text2)", fontSize:13, fontStyle:"italic" }}>{card.example}</div>
+        <button onClick={()=>speak(card.en,speakLang)} style={{ marginTop:12, background:"var(--blue)22", border:"1px solid var(--blue)44", color:"var(--blue)", borderRadius:10, padding:"7px 16px", cursor:"pointer", fontSize:13, fontWeight:700 }}>🔊 Вимова</button>
       </div>
-      <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Введіть українською..." style={{ width:"100%", padding:"18px 20px", fontSize:17, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontWeight:700, marginBottom:16, boxSizing:"border-box" }}/>
-      <GlowBtn onClick={check} disabled={!val.trim()} style={{ width:"100%", padding:"18px" }}>ПЕРЕВІРИТИ</GlowBtn>
+      <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Введіть українською..." style={{ width:"100%", padding:"16px 18px", fontSize:16, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontWeight:700, marginBottom:14 }}/>
+      <GlowBtn onClick={check} disabled={!val.trim()} style={{ width:"100%", padding:"16px" }}>ПЕРЕВІРИТИ</GlowBtn>
     </div>
   );
 }
-
-function ExBuildWord({ card, onAnswer }) {
+function ExBuildWord({ card, onAnswer }: any) {
   const letters = useRef(shuf(card.uk.split("")));
-  const [built, setBuilt] = useState([]);
-  const [usedIdx, setUsedIdx] = useState([]);
+  const [built, setBuilt] = useState<{letter:string,srcIdx:number}[]>([]);
+  const [usedIdx, setUsedIdx] = useState<number[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const add = (l,i) => { if(submitted||usedIdx.includes(i)) return; setBuilt(b=>[...b,{letter:l,srcIdx:i}]); setUsedIdx(u=>[...u,i]); };
-  const rem = (i) => { if(submitted) return; const item=built[i]; setUsedIdx(u=>u.filter(x=>x!==item.srcIdx)); setBuilt(b=>b.filter((_,x)=>x!==i)); };
+  const add = (l: string,i: number) => { if(submitted||usedIdx.includes(i)) return; setBuilt(b=>[...b,{letter:l,srcIdx:i}]); setUsedIdx(u=>[...u,i]); };
+  const rem = (i: number) => { if(submitted) return; const item=built[i]; setUsedIdx(u=>u.filter(x=>x!==item.srcIdx)); setBuilt(b=>b.filter((_,x)=>x!==i)); };
   const check = () => { if(submitted||!built.length) return; setSubmitted(true); const a=built.map(b=>b.letter).join(""); setTimeout(()=>onAnswer(a===card.uk,card.uk),400); };
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%", maxWidth:480, margin:"0 auto" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:1, marginBottom:20 }}>Збери слово</p>
-      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:20, padding:"20px", marginBottom:24, textAlign:"center" }}>
-        <div style={{ fontSize:36, fontWeight:900 }}>{card.en}</div>
+    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
+      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Збери слово</p>
+      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:18, padding:"18px", marginBottom:18, textAlign:"center" }}>
+        <div style={{ fontSize:32, fontWeight:900 }}>{card.en}</div>
       </div>
-      <div style={{ minHeight:60, background:"var(--bg4)", borderRadius:14, padding:"12px", display:"flex", flexWrap:"wrap", gap:8, marginBottom:20, alignItems:"center" }}>
-        {!built.length && <span style={{ color:"var(--text3)", fontSize:14 }}>Натискай букви...</span>}
-        {built.map((b,i)=><button key={i} onClick={()=>rem(i)} style={{ background:"var(--green)", color:"#000", border:"none", borderRadius:8, width:38, height:38, fontWeight:900, fontSize:16, cursor:"pointer" }}>{b.letter}</button>)}
+      <div style={{ minHeight:54, background:"var(--bg4)", borderRadius:12, padding:"10px", display:"flex", flexWrap:"wrap", gap:6, marginBottom:16, alignItems:"center" }}>
+        {!built.length && <span style={{ color:"var(--text3)", fontSize:13 }}>Натискай букви...</span>}
+        {built.map((b,i)=><button key={i} onClick={()=>rem(i)} style={{ background:"var(--green)", color:"#000", border:"none", borderRadius:8, width:34, height:34, fontWeight:900, fontSize:15, cursor:"pointer" }}>{b.letter}</button>)}
       </div>
-      <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:24, justifyContent:"center" }}>
-        {letters.current.map((l,i)=><button key={i} onClick={()=>add(l,i)} disabled={usedIdx.includes(i)} style={{ background:usedIdx.includes(i)?"var(--bg4)":"var(--bg3)", color:usedIdx.includes(i)?"var(--text3)":"var(--text1)", border:`1px solid ${usedIdx.includes(i)?"var(--border)":"var(--border2)"}`, borderRadius:8, width:38, height:38, fontWeight:800, fontSize:16, cursor:usedIdx.includes(i)?"default":"pointer", transition:"all .1s" }}>{l}</button>)}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginBottom:18, justifyContent:"center" }}>
+        {letters.current.map((l,i)=><button key={i} onClick={()=>add(l,i)} disabled={usedIdx.includes(i)} style={{ background:usedIdx.includes(i)?"var(--bg4)":"var(--bg3)", color:usedIdx.includes(i)?"var(--text3)":"var(--text1)", border:`1px solid ${usedIdx.includes(i)?"var(--border)":"var(--border2)"}`, borderRadius:8, width:36, height:36, fontWeight:800, fontSize:15, cursor:usedIdx.includes(i)?"default":"pointer", transition:"all .1s" }}>{l}</button>)}
       </div>
-      <GlowBtn onClick={check} disabled={!built.length} style={{ width:"100%", padding:"18px" }}>ПЕРЕВІРИТИ</GlowBtn>
+      <GlowBtn onClick={check} disabled={!built.length} style={{ width:"100%", padding:"16px" }}>ПЕРЕВІРИТИ</GlowBtn>
     </div>
   );
 }
-
-function ExMatching({ cards, onComplete }) {
+function ExMatching({ cards, onComplete }: any) {
   const pairs = useRef(cards.slice(0,5));
-  const lefts = useRef(shuf(pairs.current.map(c=>c.en)));
-  const rights = useRef(shuf(pairs.current.map(c=>c.uk)));
-  const [selL, setSelL] = useState(null);
-  const [selR, setSelR] = useState(null);
-  const [matched, setMatched] = useState([]);
-  const [wrong, setWrong] = useState([]);
+  const lefts = useRef(shuf(pairs.current.map((c:any)=>c.en)));
+  const rights = useRef(shuf(pairs.current.map((c:any)=>c.uk)));
+  const [selL, setSelL] = useState<string|null>(null);
+  const [selR, setSelR] = useState<string|null>(null);
+  const [matched, setMatched] = useState<string[]>([]);
+  const [wrong, setWrong] = useState<string[]>([]);
   useEffect(() => {
     if (selL && selR) {
-      const pair = pairs.current.find(c=>c.en===selL);
+      const pair = pairs.current.find((c:any)=>c.en===selL);
       if (pair && pair.uk===selR) { setMatched(m=>[...m,selL]); setSelL(null); setSelR(null); if(matched.length+1===pairs.current.length) setTimeout(()=>onComplete(true),600); }
       else { setWrong([selL,selR]); setTimeout(()=>{setSelL(null);setSelR(null);setWrong([]);},800); }
     }
   },[selL,selR]);
-  const btnStyle = (word, side) => {
-    const isMatched = side==="l"?matched.includes(word):matched.some(m=>pairs.current.find(p=>p.en===m)?.uk===word);
+  const btnStyle = (word: string, side: string) => {
+    const isMatched = side==="l"?matched.includes(word):matched.some(m=>pairs.current.find((p:any)=>p.en===m)?.uk===word);
     const isWrong = wrong.includes(word);
     const isSel = side==="l"?selL===word:selR===word;
-    return { background:isMatched?"var(--green)22":isWrong?"var(--red)22":isSel?"var(--blue)22":"var(--bg3)", color:isMatched?"var(--green)":isWrong?"var(--red)":isSel?"var(--blue)":"var(--text1)", border:`1px solid ${isMatched?"var(--green)":isWrong?"var(--red)":isSel?"var(--blue)":"var(--border)"}`, borderRadius:12, padding:"12px 10px", fontWeight:800, fontSize:14, cursor:isMatched?"default":"pointer", transition:"all .15s", width:"100%", opacity:isMatched?.5:1 };
+    return { background:isMatched?"var(--green)22":isWrong?"var(--red)22":isSel?"var(--blue)22":"var(--bg3)", color:isMatched?"var(--green)":isWrong?"var(--red)":isSel?"var(--blue)":"var(--text1)", border:`1px solid ${isMatched?"var(--green)":isWrong?"var(--red)":isSel?"var(--blue)":"var(--border)"}`, borderRadius:12, padding:"11px 8px", fontWeight:800, fontSize:13, cursor:isMatched?"default":"pointer", transition:"all .15s", width:"100%", opacity:isMatched?.5:1 };
   };
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%", maxWidth:480, margin:"0 auto" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:1, marginBottom:20 }}>Знайди пару</p>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>{lefts.current.map(w=><button key={w} onClick={()=>!matched.includes(w)&&setSelL(w)} style={btnStyle(w,"l")}>{w}</button>)}</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>{rights.current.map(w=>{const iM=matched.some(m=>pairs.current.find(p=>p.en===m)?.uk===w);return <button key={w} onClick={()=>!iM&&setSelR(w)} style={btnStyle(w,"r")}>{w}</button>;})}</div>
+    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
+      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Знайди пару</p>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{lefts.current.map((w:string)=><button key={w} onClick={()=>!matched.includes(w)&&setSelL(w)} style={btnStyle(w,"l")}>{w}</button>)}</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{rights.current.map((w:string)=>{const iM=matched.some(m=>pairs.current.find((p:any)=>p.en===m)?.uk===w);return <button key={w} onClick={()=>!iM&&setSelR(w)} style={btnStyle(w,"r")}>{w}</button>;})}</div>
       </div>
     </div>
   );
 }
-
-function ExFillGap({ card, onAnswer }) {
+function ExFillGap({ card, onAnswer }: any) {
   const [val, setVal] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const gapped = card.example.replace(new RegExp(card.en,'i'),'___');
   const check = () => { if(!val.trim()||submitted) return; setSubmitted(true); setTimeout(()=>onAnswer(val.trim().toLowerCase()===card.en.toLowerCase(),card.en),400); };
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%", maxWidth:480, margin:"0 auto" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:1, marginBottom:20 }}>Заповни пропуск</p>
-      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:20, padding:"24px", marginBottom:24, textAlign:"center" }}>
-        <div style={{ fontSize:16, fontWeight:700, color:"var(--text2)", marginBottom:12 }}>Переклад: <span style={{color:"var(--text1)"}}>{card.uk}</span></div>
-        <div style={{ fontSize:20, fontWeight:800, lineHeight:1.6 }}>{gapped}</div>
+    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
+      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Заповни пропуск</p>
+      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:18, padding:"20px", marginBottom:18, textAlign:"center" }}>
+        <div style={{ fontSize:14, fontWeight:700, color:"var(--text2)", marginBottom:10 }}>Переклад: <span style={{color:"var(--text1)"}}>{card.uk}</span></div>
+        <div style={{ fontSize:18, fontWeight:800, lineHeight:1.6 }}>{gapped}</div>
       </div>
-      <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Введіть слово..." style={{ width:"100%", padding:"18px 20px", fontSize:17, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontWeight:700, marginBottom:16, boxSizing:"border-box" }}/>
-      <GlowBtn onClick={check} disabled={!val.trim()} style={{ width:"100%", padding:"18px" }}>ПЕРЕВІРИТИ</GlowBtn>
+      <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Введіть слово..." style={{ width:"100%", padding:"16px 18px", fontSize:16, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontWeight:700, marginBottom:14 }}/>
+      <GlowBtn onClick={check} disabled={!val.trim()} style={{ width:"100%", padding:"16px" }}>ПЕРЕВІРИТИ</GlowBtn>
     </div>
   );
 }
-
-function ExDictation({ card, speakLang, onAnswer }) {
+function ExDictation({ card, speakLang, onAnswer }: any) {
   const [val, setVal] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [played, setPlayed] = useState(false);
   const play = () => { speak(card.en,speakLang,0.7); setPlayed(true); };
   const check = () => { if(!val.trim()||submitted||!played) return; setSubmitted(true); setTimeout(()=>onAnswer(val.trim().toLowerCase()===card.en.toLowerCase(),card.en),400); };
   return (
-    <div style={{ animation:"popIn .3s ease", width:"100%", maxWidth:480, margin:"0 auto" }}>
-      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:1, marginBottom:20 }}>Диктант</p>
-      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:20, padding:"32px", marginBottom:28, textAlign:"center" }}>
-        <p style={{ color:"var(--text2)", fontSize:15, marginBottom:20 }}>Послухайте та напишіть слово</p>
-        <button onClick={play} style={{ background:"var(--blue)", border:"none", borderRadius:16, padding:"16px 32px", color:"#000", fontWeight:900, fontSize:16, cursor:"pointer" }}>{played?"🔊 Ще раз":"▶ Відтворити"}</button>
-        {played && <div style={{ marginTop:16, color:"var(--text3)", fontSize:13 }}>Переклад: {card.uk}</div>}
+    <div style={{ animation:"popIn .3s ease", width:"100%" }}>
+      <p style={{ color:"var(--text2)", fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>Диктант</p>
+      <div style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:18, padding:"28px 20px", marginBottom:20, textAlign:"center" }}>
+        <p style={{ color:"var(--text2)", fontSize:14, marginBottom:18 }}>Послухайте та напишіть слово</p>
+        <button onClick={play} style={{ background:"var(--blue)", border:"none", borderRadius:14, padding:"14px 28px", color:"#000", fontWeight:900, fontSize:15, cursor:"pointer" }}>{played?"🔊 Ще раз":"▶ Відтворити"}</button>
+        {played && <div style={{ marginTop:14, color:"var(--text3)", fontSize:13 }}>Переклад: {card.uk}</div>}
       </div>
-      <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Введіть слово..." disabled={!played} style={{ width:"100%", padding:"18px 20px", fontSize:17, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontWeight:700, marginBottom:16, boxSizing:"border-box", opacity:played?1:.5 }}/>
-      <GlowBtn onClick={check} disabled={!val.trim()||!played} style={{ width:"100%", padding:"18px" }}>ПЕРЕВІРИТИ</GlowBtn>
+      <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Введіть слово..." disabled={!played} style={{ width:"100%", padding:"16px 18px", fontSize:16, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontWeight:700, marginBottom:14, opacity:played?1:.5 }}/>
+      <GlowBtn onClick={check} disabled={!val.trim()||!played} style={{ width:"100%", padding:"16px" }}>ПЕРЕВІРИТИ</GlowBtn>
     </div>
   );
 }
-
 // ─── SESSION SCREEN ───────────────────────────────────────────────────────────
-function SessionScreen({ cards, mode, speakLang, allCards, onFinish, onExit }) {
+function SessionScreen({ cards, mode, speakLang, allCards, onFinish, onExit }: any) {
   const [idx, setIdx] = useState(0);
-  const [fb, setFb] = useState(null);
+  const [fb, setFb] = useState<any>(null);
   const [shake, setShake] = useState(false);
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<any[]>([]);
   const [done, setDone] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
-  const sessionCards = useRef(null);
+  const sessionCards = useRef<any[]|null>(null);
   if (!sessionCards.current) {
-    const due = shuf(cards.filter(c=>SRS.isDue(c))).slice(0,10);
+    const due = shuf(cards.filter((c:any)=>SRS.isDue(c))).slice(0,10);
     sessionCards.current = due.length > 0 ? due : shuf(cards).slice(0,8);
   }
   const current = sessionCards.current[idx];
   const total = sessionCards.current.length;
-
-  const handleAnswer = (correct, correctAnswer) => {
+  const handleAnswer = (correct: boolean, correctAnswer: string) => {
     if (!correct) { setShake(true); setTimeout(()=>setShake(false),500); }
     setFb({ correct, correctAnswer });
   };
-
   const handleNext = () => {
     const correct = fb.correct;
     const quality = correct ? 4 : 1;
@@ -683,9 +657,7 @@ function SessionScreen({ cards, mode, speakLang, allCards, onFinish, onExit }) {
     if (idx+1>=total) setDone(true);
     else setIdx(i=>i+1);
   };
-
   const handleMatchComplete = () => { setXpEarned(x=>x+40); setDone(true); };
-
   if (done) {
     const correct = results.filter(r=>r.correct).length;
     const accuracy = results.length>0 ? Math.round((correct/results.length)*100) : 100;
@@ -695,49 +667,49 @@ function SessionScreen({ cards, mode, speakLang, allCards, onFinish, onExit }) {
         {Array.from({length:20}).map((_,i)=>(
           <div key={i} style={{ position:"absolute", bottom:"25%", left:`${5+Math.random()*90}%`, width:10, height:10, background:["var(--green)","var(--blue)","var(--purple)","var(--orange)","var(--yellow)"][i%5], borderRadius:3, animation:`confetti ${1+Math.random()*.8}s ${Math.random()*.4}s ease-out forwards` }}/>
         ))}
-        <div style={{ textAlign:"center", padding:30, animation:"popIn .5s ease", maxWidth:400, width:"100%" }}>
-          <div style={{ fontSize:72, marginBottom:16 }}>🏆</div>
-          <h1 style={{ fontWeight:900, fontSize:32, color:"var(--green)", marginBottom:8 }}>Сесію завершено!</h1>
-          <p style={{ color:"var(--text2)", fontSize:16, marginBottom:36 }}>{results.length} карток • {accuracy}% точність</p>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:32 }}>
+        <div style={{ textAlign:"center", padding:"24px 20px", animation:"popIn .5s ease", maxWidth:380, width:"100%" }}>
+          <div style={{ fontSize:64, marginBottom:14 }}>🏆</div>
+          <h1 style={{ fontWeight:900, fontSize:28, color:"var(--green)", marginBottom:6 }}>Сесію завершено!</h1>
+          <p style={{ color:"var(--text2)", fontSize:14, marginBottom:28 }}>{results.length} карток • {accuracy}% точність</p>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:26 }}>
             {[{emoji:"⭐",value:`+${xpEarned}`,label:"XP",color:"var(--yellow)"},{emoji:"✅",value:`${correct}/${results.length}`,label:"Правильно",color:"var(--green)"},{emoji:"🎯",value:`${accuracy}%`,label:"Точність",color:"var(--blue)"}].map(s=>(
-              <div key={s.label} style={{ background:"var(--bg3)", borderRadius:16, padding:"16px 8px", border:"1px solid var(--border)" }}>
-                <div style={{ fontSize:24 }}>{s.emoji}</div>
-                <div style={{ fontWeight:900, fontSize:20, color:s.color }}>{s.value}</div>
-                <div style={{ fontWeight:700, fontSize:11, color:"var(--text3)", textTransform:"uppercase" }}>{s.label}</div>
+              <div key={s.label} style={{ background:"var(--bg3)", borderRadius:14, padding:"14px 6px", border:"1px solid var(--border)" }}>
+                <div style={{ fontSize:20 }}>{s.emoji}</div>
+                <div style={{ fontWeight:900, fontSize:18, color:s.color }}>{s.value}</div>
+                <div style={{ fontWeight:700, fontSize:10, color:"var(--text3)", textTransform:"uppercase" }}>{s.label}</div>
               </div>
             ))}
           </div>
-          <GlowBtn onClick={()=>onFinish(results,xpEarned)} style={{ width:"100%", padding:"18px", fontSize:16 }}>ПРОДОВЖИТИ</GlowBtn>
+          <GlowBtn onClick={()=>onFinish(results,xpEarned)} style={{ width:"100%", padding:"16px", fontSize:15 }}>ПРОДОВЖИТИ</GlowBtn>
         </div>
       </div>
     );
   }
-
   if (mode==="matching") {
     return (
       <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column" }}>
         <style>{GLOBAL_CSS}</style>
-        <div style={{ padding:"20px", display:"flex", alignItems:"center", gap:16, borderBottom:"1px solid var(--border)" }}>
-          <button onClick={onExit} style={{ background:"none", border:"none", color:"var(--text3)", fontSize:22, cursor:"pointer" }}>✕</button>
-          <span style={{ fontWeight:800, fontSize:15, color:"var(--text2)" }}>Знайди пару</span>
+        <div style={{ padding:"16px 20px", paddingTop:"calc(16px + var(--safe-top))", display:"flex", alignItems:"center", gap:14, borderBottom:"1px solid var(--border)" }}>
+          <button onClick={onExit} style={{ background:"none", border:"none", color:"var(--text3)", fontSize:20, cursor:"pointer", padding:"4px 8px" }}>✕</button>
+          <span style={{ fontWeight:800, fontSize:14, color:"var(--text2)" }}>Знайди пару</span>
         </div>
-        <div style={{ flex:1, padding:"30px 20px", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <ExMatching cards={sessionCards.current} onComplete={handleMatchComplete}/>
+        <div style={{ flex:1, padding:"20px 16px", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ width:"100%", maxWidth:480 }}>
+            <ExMatching cards={sessionCards.current} onComplete={handleMatchComplete}/>
+          </div>
         </div>
       </div>
     );
   }
-
   return (
     <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column" }}>
       <style>{GLOBAL_CSS}</style>
-      <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:16, borderBottom:"1px solid var(--border)" }}>
-        <button onClick={onExit} style={{ background:"none", border:"none", color:"var(--text3)", fontSize:22, cursor:"pointer" }}>✕</button>
-        <div style={{ flex:1 }}><ProgressBar value={idx} max={total} h={10}/></div>
-        <span style={{ fontWeight:700, fontSize:13, color:"var(--text3)" }}>{idx+1}/{total}</span>
+      <div style={{ padding:"14px 16px", paddingTop:"calc(14px + var(--safe-top))", display:"flex", alignItems:"center", gap:12, borderBottom:"1px solid var(--border)" }}>
+        <button onClick={onExit} style={{ background:"none", border:"none", color:"var(--text3)", fontSize:20, cursor:"pointer", padding:"4px 8px", flexShrink:0 }}>✕</button>
+        <div style={{ flex:1 }}><ProgressBar value={idx} max={total} h={8}/></div>
+        <span style={{ fontWeight:700, fontSize:12, color:"var(--text3)", flexShrink:0 }}>{idx+1}/{total}</span>
       </div>
-      <div style={{ flex:1, padding:"32px 20px 120px", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center" }}>
+      <div style={{ flex:1, padding:"20px 16px 140px", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", overflowY:"auto" }}>
         <div key={idx} style={{ width:"100%", maxWidth:480, animation:shake?"shake .4s ease":"none" }}>
           {mode==="choice"    && <ExChoice card={current} speakLang={speakLang} allCards={allCards} onAnswer={handleAnswer}/>}
           {mode==="type"      && <ExTypeAnswer card={current} speakLang={speakLang} onAnswer={handleAnswer}/>}
@@ -750,118 +722,102 @@ function SessionScreen({ cards, mode, speakLang, allCards, onFinish, onExit }) {
     </div>
   );
 }
-
 // ─── LESSONS TAB ──────────────────────────────────────────────────────────────
-function LessonsTab({ cards, level, langId, onStartLesson, onStartCustomLesson }) {
+function LessonsTab({ cards, level, langId, onStartLesson, onStartCustomLesson }: any) {
   const levelOrder = ["A1","A2","B1","B2","C1"];
   const userLevelIdx = levelOrder.indexOf(level);
-  const lessons = langId === "en" ? EN_LESSONS : EN_LESSONS;
-
-  const getLessonProgress = (lesson) => {
+  const lessons = EN_LESSONS;
+  const getLessonProgress = (lesson: any) => {
     const wordIds = lesson.wordIds;
-    const learned = wordIds.filter(id => {
-      const card = cards.find(c=>c.id===id);
+    const learned = wordIds.filter((id: string) => {
+      const card = cards.find((c:any)=>c.id===id);
       return card && (card.srs?.repetitions||0) >= 1;
     }).length;
     return { learned, total: wordIds.length };
   };
-
-  const isUnlocked = (lesson) => {
+  const isUnlocked = (lesson: any) => {
     const lessonLevelIdx = levelOrder.indexOf(lesson.level);
     return lessonLevelIdx <= userLevelIdx + 1;
   };
-
-  const levelEmojis = { A1:"🌱", A2:"🌿", B1:"🌳", B2:"🔥", C1:"💎" };
-  const levelDescs = {
+  const levelEmojis: any = { A1:"🌱", A2:"🌿", B1:"🌳", B2:"🔥", C1:"💎" };
+  const levelDescs: any = {
     A1:"Починаємо з нуля. Перші слова — перші перемоги.",
     A2:"Ти вже не новачок. Розширюємо горизонти.",
     B1:"Середній рівень — тут починається справжня мова.",
     B2:"Просунутий. Говориш майже як носій.",
     C1:"Майстер. Тільки найскладніше."
   };
-
-  const customCards = cards.filter(c=>c.id.startsWith("cust_"));
-
+  const customCards = cards.filter((c:any)=>c.id.startsWith("cust_"));
   return (
-    <div style={{ padding:"24px 20px", maxWidth:600, margin:"0 auto" }}>
-      <h2 style={{ fontWeight:900, fontSize:24, marginBottom:4 }}>📚 Уроки</h2>
-      <p style={{ color:"var(--text2)", fontSize:14, marginBottom:24 }}>Крок за кроком до вільної мови</p>
-
+    <div style={{ padding:"16px", maxWidth:600, margin:"0 auto" }}>
+      <h2 style={{ fontWeight:900, fontSize:22, marginBottom:2 }}>📚 Уроки</h2>
+      <p style={{ color:"var(--text2)", fontSize:13, marginBottom:20 }}>Крок за кроком до вільної мови</p>
       {customCards.length > 0 && (
-        <div style={{ marginBottom:28 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-            <div style={{ background:"var(--yellow)", color:"#000", borderRadius:10, padding:"4px 12px", fontWeight:900, fontSize:13 }}>⭐ МОЇ СЛОВА</div>
+        <div style={{ marginBottom:24 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+            <div style={{ background:"var(--yellow)", color:"#000", borderRadius:8, padding:"3px 10px", fontWeight:900, fontSize:12 }}>⭐ МОЇ СЛОВА</div>
             <div style={{ flex:1, height:1, background:"var(--border)" }}/>
           </div>
-          <button onClick={()=>onStartCustomLesson(customCards)} style={{ width:"100%", background:"var(--yellow)11", border:"1px solid var(--yellow)44", borderRadius:18, padding:"16px 18px", textAlign:"left", cursor:"pointer" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
-              <span style={{ fontSize:28 }}>⭐</span>
+          <button onClick={()=>onStartCustomLesson(customCards)} style={{ width:"100%", background:"var(--yellow)11", border:"1px solid var(--yellow)44", borderRadius:16, padding:"14px 16px", textAlign:"left", cursor:"pointer" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:26 }}>⭐</span>
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:900, fontSize:16, color:"var(--yellow)", marginBottom:2 }}>Мої слова</div>
-                <div style={{ color:"var(--text3)", fontSize:12 }}>Слова які ти додав сам • {customCards.length} слів</div>
+                <div style={{ fontWeight:900, fontSize:15, color:"var(--yellow)", marginBottom:1 }}>Мої слова</div>
+                <div style={{ color:"var(--text3)", fontSize:11 }}>Слова які ти додав сам • {customCards.length} слів</div>
               </div>
             </div>
           </button>
         </div>
       )}
-
       {levelOrder.map(lvl => {
-        const lvlLessons = lessons.filter(l=>l.level===lvl);
+        const lvlLessons = lessons.filter((l:any)=>l.level===lvl);
         if (lvlLessons.length === 0) return null;
-
         const lvlIdx = levelOrder.indexOf(lvl);
         const isLvlUnlocked = lvlIdx <= userLevelIdx + 1;
-        const totalLvlLearned = lvlLessons.reduce((acc,l)=>{
-          const {learned} = getLessonProgress(l);
-          return acc+learned;
-        },0);
-        const totalLvlWords = lvlLessons.reduce((acc,l)=>acc+l.wordIds.length,0);
-
+        const totalLvlLearned = lvlLessons.reduce((acc:number,l:any)=>{ const {learned} = getLessonProgress(l); return acc+learned; },0);
+        const totalLvlWords = lvlLessons.reduce((acc:number,l:any)=>acc+l.wordIds.length,0);
         return (
-          <div key={lvl} style={{ marginBottom:32 }}>
-            <div style={{ background:isLvlUnlocked?`var(--bg3)`:"var(--bg2)", border:`1px solid ${isLvlUnlocked?"var(--border2)":"var(--border)"}`, borderRadius:16, padding:"14px 18px", marginBottom:16 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-                <span style={{ fontSize:22 }}>{isLvlUnlocked?levelEmojis[lvl]:"🔒"}</span>
+          <div key={lvl} style={{ marginBottom:24 }}>
+            <div style={{ background:isLvlUnlocked?"var(--bg3)":"var(--bg2)", border:`1px solid ${isLvlUnlocked?"var(--border2)":"var(--border)"}`, borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:isLvlUnlocked?6:0 }}>
+                <span style={{ fontSize:20 }}>{isLvlUnlocked?levelEmojis[lvl]:"🔒"}</span>
                 <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <span style={{ fontWeight:900, fontSize:16, color:isLvlUnlocked?"var(--text1)":"var(--text3)" }}>Рівень {lvl}</span>
-                    {isLvlUnlocked && <span style={{ background:"var(--purple)22", color:"var(--purple)", border:"1px solid var(--purple)44", borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:800 }}>{totalLvlLearned}/{totalLvlWords} слів</span>}
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ fontWeight:900, fontSize:14, color:isLvlUnlocked?"var(--text1)":"var(--text3)" }}>Рівень {lvl}</span>
+                    {isLvlUnlocked && <span style={{ background:"var(--purple)22", color:"var(--purple)", border:"1px solid var(--purple)44", borderRadius:6, padding:"1px 6px", fontSize:10, fontWeight:800 }}>{totalLvlLearned}/{totalLvlWords}</span>}
                   </div>
-                  <div style={{ fontSize:12, color:"var(--text3)", marginTop:2 }}>{levelDescs[lvl]}</div>
+                  <div style={{ fontSize:11, color:"var(--text3)", marginTop:1 }}>{levelDescs[lvl]}</div>
                 </div>
-                {!isLvlUnlocked && <span style={{ fontSize:18 }}>🔒</span>}
+                {!isLvlUnlocked && <span style={{ fontSize:16 }}>🔒</span>}
               </div>
-              {isLvlUnlocked && <ProgressBar value={totalLvlLearned} max={totalLvlWords} color="var(--purple)" h={5}/>}
+              {isLvlUnlocked && <ProgressBar value={totalLvlLearned} max={totalLvlWords} color="var(--purple)" h={4}/>}
             </div>
-
             {isLvlUnlocked && (
-              <div style={{ display:"flex", flexDirection:"column", gap:10, paddingLeft:8 }}>
-                {lvlLessons.map((lesson, lessonIdx) => {
+              <div style={{ display:"flex", flexDirection:"column", gap:8, paddingLeft:6 }}>
+                {lvlLessons.map((lesson:any) => {
                   const { learned, total } = getLessonProgress(lesson);
                   const pct = Math.round((learned/total)*100);
                   const unlocked = isUnlocked(lesson);
                   const completed = learned === total && total > 0;
                   const inProgress = learned > 0 && !completed;
-
                   return (
                     <button key={lesson.id} onClick={()=>unlocked&&onStartLesson(lesson)} disabled={!unlocked}
-                      style={{ background:completed?"var(--green)11":inProgress?"var(--blue)11":"var(--bg3)", border:`2px solid ${completed?"var(--green)44":inProgress?"var(--blue)44":unlocked?"var(--border)":"var(--bg4)"}`, borderRadius:18, padding:"16px 18px", textAlign:"left", cursor:unlocked?"pointer":"default", transition:"all .2s", opacity:unlocked?1:.4, position:"relative", overflow:"hidden" }}>
-                      {lessonIdx < lvlLessons.length-1 && <div style={{ position:"absolute", left:30, bottom:-10, width:2, height:10, background:"var(--border)", zIndex:1 }}/>}
-                      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:completed||inProgress?10:0 }}>
-                        <div style={{ width:44, height:44, borderRadius:"50%", background:completed?"var(--green)":inProgress?"var(--blue)":"var(--bg4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0, border:`2px solid ${completed?"var(--green)":inProgress?"var(--blue)":"var(--border)"}`, boxShadow:completed?`0 0 12px var(--green-glow)`:inProgress?`0 0 12px rgba(56,189,248,0.3)`:"none" }}>
+                      style={{ background:completed?"var(--green)11":inProgress?"var(--blue)11":"var(--bg3)", border:`2px solid ${completed?"var(--green)44":inProgress?"var(--blue)44":unlocked?"var(--border)":"var(--bg4)"}`, borderRadius:16, padding:"14px", textAlign:"left", cursor:unlocked?"pointer":"default", transition:"all .2s", opacity:unlocked?1:.4 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:completed||inProgress?8:0 }}>
+                        <div style={{ width:40, height:40, borderRadius:"50%", background:completed?"var(--green)":inProgress?"var(--blue)":"var(--bg4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0, border:`2px solid ${completed?"var(--green)":inProgress?"var(--blue)":"var(--border)"}`, boxShadow:completed?`0 0 10px var(--green-glow)`:inProgress?`0 0 10px rgba(56,189,248,0.3)`:"none" }}>
                           {unlocked ? (completed?"✓":lesson.emoji) : "🔒"}
                         </div>
                         <div style={{ flex:1 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                            <span style={{ fontWeight:900, fontSize:15, color:completed?"var(--green)":inProgress?"var(--blue)":"var(--text1)" }}>{lesson.title}</span>
-                            {completed && <span style={{ fontSize:14 }}>⭐</span>}
+                          <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
+                            <span style={{ fontWeight:900, fontSize:14, color:completed?"var(--green)":inProgress?"var(--blue)":"var(--text1)" }}>{lesson.title}</span>
+                            {completed && <span style={{ fontSize:12 }}>⭐</span>}
                           </div>
-                          <div style={{ color:"var(--text3)", fontSize:12 }}>{lesson.desc} · {total} слів</div>
+                          <div style={{ color:"var(--text3)", fontSize:11 }}>{lesson.desc} · {total} слів</div>
                         </div>
-                        <div style={{ fontWeight:900, fontSize:13, color:completed?"var(--green)":inProgress?"var(--blue)":"var(--text3)" }}>{pct}%</div>
+                        <div style={{ fontWeight:900, fontSize:12, color:completed?"var(--green)":inProgress?"var(--blue)":"var(--text3)", flexShrink:0 }}>{pct}%</div>
                       </div>
-                      {unlocked && !completed && <div style={{ fontSize:12, color:"var(--text3)", fontStyle:"italic", marginTop:6, paddingLeft:56 }}>"{lesson.vibe}"</div>}
-                      {(completed || inProgress) && <div style={{ paddingLeft:56 }}><ProgressBar value={learned} max={total} color={completed?"var(--green)":"var(--blue)"} h={5}/></div>}
+                      {unlocked && !completed && <div style={{ fontSize:11, color:"var(--text3)", fontStyle:"italic", paddingLeft:50 }}>"{lesson.vibe}"</div>}
+                      {(completed || inProgress) && <div style={{ paddingLeft:50 }}><ProgressBar value={learned} max={total} color={completed?"var(--green)":"var(--blue)"} h={4}/></div>}
                     </button>
                   );
                 })}
@@ -873,58 +829,51 @@ function LessonsTab({ cards, level, langId, onStartLesson, onStartCustomLesson }
     </div>
   );
 }
-
-// ─── AI CHAT (БЕЗКОШТОВНИЙ СИМУЛЯТОР) ─────────────────────────────────────────
-function AIChatScreen({ userName, langName, level, cards }) {
+// ─── AI CHAT ──────────────────────────────────────────────────────────────────
+function AIChatScreen({ userName, langName, level, cards }: any) {
   const [messages, setMessages] = useState([{
     role:"assistant",
     content:`Привіт, ${userName||"студенте"}! 👋 Я твій AI-вчитель ${langName||"англійської"}.\n\nМожу пояснити будь-яке слово простою мовою, розібрати живі фрази або зіграти рольову гру.\n\nВибери сценарій або пиши що хочеш 👇`
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const endRef = useRef(null);
-
+  const endRef = useRef<HTMLDivElement>(null);
   useEffect(()=>{ endRef.current?.scrollIntoView({behavior:"smooth"}); },[messages]);
-
-  const send = async (text) => {
+  const send = async (text: string) => {
     if (!text.trim()||loading) return;
     const userMsg = {role:"user",content:text};
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
-
     const reply = await simulateAI([...messages, userMsg], "", langName);
-
     setMessages(prev=>[...prev,{role:"assistant",content:reply}]);
     setLoading(false);
   };
-
-  const quickPrompts = ["Поясни як для дебіла 😄","Дай приклад з фільму","Зробимо рольову гру","Як це в реальному житті?","Поясни різницю між схожими словами"];
-
+  const quickPrompts = ["Поясни як для дебіла 😄","Дай приклад з фільму","Зробимо рольову гру","Як це в реальному житті?"];
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 140px)" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 120px)" }}>
       {messages.length<=1 && (
-        <div style={{ padding:"0 20px 12px", overflowX:"auto" }}>
-          <div style={{ display:"flex", gap:8, paddingBottom:4 }}>
+        <div style={{ padding:"0 16px 10px", overflowX:"auto" }}>
+          <div className="scroll-x" style={{ display:"flex", gap:8, paddingBottom:4 }}>
             {SCENARIOS.map(s=>(
-              <button key={s.id} onClick={()=>send(s.prompt)} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:14, padding:"10px 16px", whiteSpace:"nowrap", cursor:"pointer", fontWeight:800, fontSize:13, color:"var(--text1)", flexShrink:0 }}>{s.emoji} {s.label}</button>
+              <button key={s.id} onClick={()=>send(s.prompt)} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:12, padding:"9px 13px", whiteSpace:"nowrap", cursor:"pointer", fontWeight:800, fontSize:12, color:"var(--text1)", flexShrink:0 }}>{s.emoji} {s.label}</button>
             ))}
           </div>
         </div>
       )}
-      <div style={{ flex:1, overflowY:"auto", padding:"0 20px", display:"flex", flexDirection:"column", gap:12 }}>
+      <div className="scroll-y" style={{ flex:1, padding:"0 16px", display:"flex", flexDirection:"column", gap:10 }}>
         {messages.map((m,i)=>(
           <div key={i} className="chat-msg" style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
-            {m.role==="assistant" && <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,var(--purple),var(--blue))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginRight:8, flexShrink:0, marginTop:4 }}>🤖</div>}
-            <div style={{ background:m.role==="user"?"var(--green)":"var(--bg3)", color:m.role==="user"?"#000":"var(--text1)", borderRadius:m.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px", padding:"12px 16px", maxWidth:"80%", fontWeight:m.role==="user"?800:600, fontSize:14, lineHeight:1.6, border:m.role==="assistant"?"1px solid var(--border)":"none", whiteSpace:"pre-wrap" }}>
+            {m.role==="assistant" && <div style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,var(--purple),var(--blue))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, marginRight:6, flexShrink:0, marginTop:4 }}>🤖</div>}
+            <div style={{ background:m.role==="user"?"var(--green)":"var(--bg3)", color:m.role==="user"?"#000":"var(--text1)", borderRadius:m.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px", padding:"11px 14px", maxWidth:"82%", fontWeight:m.role==="user"?800:600, fontSize:13, lineHeight:1.6, border:m.role==="assistant"?"1px solid var(--border)":"none", whiteSpace:"pre-wrap" }}>
               {m.content}
             </div>
           </div>
         ))}
         {loading && (
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,var(--purple),var(--blue))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
-            <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:"18px 18px 18px 4px", padding:"14px 18px" }}>
+            <div style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,var(--purple),var(--blue))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>🤖</div>
+            <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:"16px 16px 16px 4px", padding:"12px 16px" }}>
               <span className="typing-dot"/><span className="typing-dot"/><span className="typing-dot"/>
             </div>
           </div>
@@ -932,114 +881,78 @@ function AIChatScreen({ userName, langName, level, cards }) {
         <div ref={endRef}/>
       </div>
       {!loading && messages.length>1 && (
-        <div style={{ padding:"8px 20px", overflowX:"auto" }}>
-          <div style={{ display:"flex", gap:8 }}>
-            {quickPrompts.map(p=><button key={p} onClick={()=>send(p)} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:20, padding:"6px 14px", whiteSpace:"nowrap", cursor:"pointer", fontWeight:700, fontSize:12, color:"var(--text2)", flexShrink:0 }}>{p}</button>)}
+        <div className="scroll-x" style={{ padding:"6px 16px" }}>
+          <div style={{ display:"flex", gap:6 }}>
+            {quickPrompts.map(p=><button key={p} onClick={()=>send(p)} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:16, padding:"5px 12px", whiteSpace:"nowrap", cursor:"pointer", fontWeight:700, fontSize:11, color:"var(--text2)", flexShrink:0 }}>{p}</button>)}
           </div>
         </div>
       )}
-      <div style={{ padding:"12px 20px", borderTop:"1px solid var(--border)", display:"flex", gap:10, background:"var(--bg2)" }}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send(input)} placeholder="Запитай щось або попроси пояснити..." style={{ flex:1, padding:"14px 18px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontSize:14, fontWeight:700 }}/>
-        <button onClick={()=>send(input)} disabled={!input.trim()||loading} style={{ background:!input.trim()||loading?"var(--bg4)":"var(--green)", border:"none", borderRadius:14, width:48, cursor:!input.trim()||loading?"default":"pointer", fontSize:20, transition:"all .2s", color:!input.trim()||loading?"var(--text3)":"#000" }}>↑</button>
+      <div style={{ padding:"10px 16px", paddingBottom:"calc(10px + var(--safe-bottom))", borderTop:"1px solid var(--border)", display:"flex", gap:8, background:"var(--bg2)" }}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send(input)} placeholder="Запитай щось..." style={{ flex:1, padding:"13px 16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:14, fontWeight:700 }}/>
+        <button onClick={()=>send(input)} disabled={!input.trim()||loading} style={{ background:!input.trim()||loading?"var(--bg4)":"var(--green)", border:"none", borderRadius:12, width:46, cursor:!input.trim()||loading?"default":"pointer", fontSize:18, transition:"all .2s", color:!input.trim()||loading?"var(--text3)":"#000", flexShrink:0 }}>↑</button>
       </div>
     </div>
   );
 }
-
-// ─── MAIN APP COMPONENT ───────────────────────────────────────────────────────
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("welcome");
-  const [user, setUser]     = useState(null);
-  const [lang, setLang]     = useState(null);
-  const [goal, setGoal]     = useState(null);
+  const [user, setUser]     = useState<any>(null);
+  const [lang, setLang]     = useState<any>(null);
+  const [goal, setGoal]     = useState<any>(null);
   const [level, setLevel]   = useState("A1");
-  const [cards, setCards]   = useState([]);
-  const [history, setHistory] = useState([]);
+  const [cards, setCards]   = useState<any[]>([]);
+  const [history, setHistory] = useState<string[]>([]);
   const [xp, setXp]         = useState(0);
   const [totalStats, setTotal] = useState({sessions:0,correct:0,total:0,minutes:0});
-  const [activeMode, setActiveMode] = useState(null);
-  const [sessionStart, setSessionStart] = useState(null);
+  const [activeMode, setActiveMode] = useState<string|null>(null);
+  const [sessionStart, setSessionStart] = useState<number|null>(null);
   const [form, setForm]     = useState({name:"",email:"",password:""});
-
   const [dictSearch, setDictSearch] = useState("");
   const [dictTag, setDictTag]   = useState("all");
   const [addWord, setAddWord]   = useState({en:"",uk:"",example:"",tag:"custom",transcription:""});
   const [addLoading, setAddLoading] = useState(false);
-
-  const [activeLessonId, setActiveLessonId] = useState(null);
-  const [customSessionCards, setCustomSessionCards] = useState(null);
-
-  // ── 1. АВТОРИЗАЦІЯ ЧЕРЕЗ БЕКЕНД ──
-  const handleAuth = async (isRegister) => {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [activeLessonId, setActiveLessonId] = useState<string|null>(null);
+  const [customSessionCards, setCustomSessionCards] = useState<any[]|null>(null);
+  const handleAuth = async (isRegister: boolean) => {
     if (!form.email.trim() || !form.password.trim()) return;
-
-    const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-
     try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password })
+      const res = await fetch(`${API_URL}${isRegister?'/auth/register':'/auth/login'}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:form.email,password:form.password})
       });
-
       const data = await res.json();
-
       if (res.ok) {
-        // Уявимо, що бекенд повертає також дані юзера (або беремо локально)
-        setUser({ name: form.name || form.email.split("@")[0], email: form.email });
-        setLang(data.lang || null);
-        setGoal(data.goal || null);
-        setLevel(data.level || "A1");
-        setXp(data.xp || 0);
-        setHistory(data.history || []);
-        setTotal(data.totalStats || {sessions:0,correct:0,total:0,minutes:0});
-
-        // Завантажуємо слова юзера
-        fetchWordsFromBackend(data.lang?.id || "en");
-
-        setScreen(data.lang ? "home" : "pick_lang");
-      } else {
-        alert(data.message || "Помилка авторизації");
-      }
-    } catch (err) {
-      console.warn("Бекенд недоступний. Працюємо локально.", err);
-      setUser({ name: form.name || form.email.split("@")[0], email: form.email });
+        setUser({name:form.name||form.email.split("@")[0],email:form.email});
+        setLang(data.lang||null); setGoal(data.goal||null); setLevel(data.level||"A1");
+        setXp(data.xp||0); setHistory(data.history||[]); setTotal(data.totalStats||{sessions:0,correct:0,total:0,minutes:0});
+        fetchWordsFromBackend(data.lang?.id||"en");
+        setScreen(data.lang?"home":"pick_lang");
+      } else { alert(data.message||"Помилка авторизації"); }
+    } catch {
+      setUser({name:form.name||form.email.split("@")[0],email:form.email});
       setCards(EN_WORDS);
-      setScreen(loadData().lang ? "home" : "pick_lang");
+      setScreen(loadData().lang?"home":"pick_lang");
     }
   };
-
-  // Функція для завантаження слів
-  const fetchWordsFromBackend = async (languageId) => {
+  const fetchWordsFromBackend = async (languageId: string) => {
     try {
       const res = await fetch(`${API_URL}/words`);
       const dbWords = await res.json();
-
-      const myDbWords = dbWords.filter(w => w.category === languageId || !w.category);
-      const formattedDbWords = myDbWords.map(w => ({
-        id: `cust_${w.id}`, dbId: w.id, en: w.original, uk: w.translation,
-        example: "Додано зі словника", tag: "custom", level: "custom", transcription: ""
-      }));
-
-      const langWords = WORDS_BY_LANG[languageId] || EN_WORDS;
-
-      // Зливаємо прогрес
-      const savedProgress = loadData().cards || [];
-      const mergeWithProgress = (arr) => arr.map(w => {
-        const sc = savedProgress.find(c => c.id === w.id);
-        return sc ? { ...w, ...sc, srs: sc.srs } : w;
-      });
-
-      setCards([...mergeWithProgress(langWords), ...mergeWithProgress(formattedDbWords)]);
-    } catch (err) {
-      const langWords = WORDS_BY_LANG[languageId] || EN_WORDS;
-      const saved = loadData().cards || [];
-      const merged = langWords.map(w=>{ const sc=saved.find(c=>c.id===w.id); return sc?{...w,...sc,srs:sc.srs}:w; });
-      setCards([...merged, ...saved.filter(c=>c.id.startsWith("cust_"))]);
+      const myDbWords = dbWords.filter((w:any)=>w.category===languageId||!w.category);
+      const formattedDbWords = myDbWords.map((w:any)=>({id:`cust_${w.id}`,dbId:w.id,en:w.original,uk:w.translation,example:"Додано зі словника",tag:"custom",level:"custom",transcription:""}));
+      const langWords = WORDS_BY_LANG[languageId]||EN_WORDS;
+      const savedProgress = loadData().cards||[];
+      const mergeWithProgress = (arr:any[]) => arr.map(w=>{ const sc=savedProgress.find((c:any)=>c.id===w.id); return sc?{...w,...sc,srs:sc.srs}:w; });
+      setCards([...mergeWithProgress(langWords),...mergeWithProgress(formattedDbWords)]);
+    } catch {
+      const langWords = WORDS_BY_LANG[languageId]||EN_WORDS;
+      const saved = loadData().cards||[];
+      const merged = langWords.map((w:any)=>{ const sc=saved.find((c:any)=>c.id===w.id); return sc?{...w,...sc,srs:sc.srs}:w; });
+      setCards([...merged,...saved.filter((c:any)=>c.id.startsWith("cust_"))]);
     }
   };
-
-  // Initial Load (перевірка локального збереження)
   useEffect(()=>{
     const s=loadData();
     if(s.user&&s.lang){
@@ -1050,210 +963,125 @@ export default function App() {
       fetchWordsFromBackend(s.lang.id);
     }
   },[]);
-
-  // ── 2. АВТО-СИНХРОНІЗАЦІЯ ПРОФІЛЮ ТА КАРТОК З JAVA ──
   useEffect(()=>{
-    if(user && user.email) {
-      // Синхронізуємо загальні дані (xp, history)
-      fetch(`${API_URL}/users/${user.email}/sync`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang, goal, level, xp, history, totalStats })
-      }).catch(e => console.log("Синхронізація профілю офлайн"));
-
-      // Зберігаємо локально як бекап
+    if(user&&user.email){
+      fetch(`${API_URL}/users/${user.email}/sync`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({lang,goal,level,xp,history,totalStats})}).catch(()=>{});
       saveData({user,lang,goal,level,cards,history,xp,totalStats});
     }
   },[user,lang,goal,level,history,xp,totalStats]);
-
   useEffect(()=>{
-    if(user && user.email && cards.length > 0) {
-      const learnedCards = cards.filter(c => c.srs); // Тільки ті, де є прогрес
-      fetch(`${API_URL}/users/${user.email}/cards`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(learnedCards)
-      }).catch(e => console.log("Синхронізація карток офлайн"));
-
-      saveData({user,lang,goal,level,cards,history,xp,totalStats}); // Бекап
+    if(user&&user.email&&cards.length>0){
+      const learned=cards.filter((c:any)=>c.srs);
+      fetch(`${API_URL}/users/${user.email}/cards`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(learned)}).catch(()=>{});
+      saveData({user,lang,goal,level,cards,history,xp,totalStats});
     }
   },[cards]);
-
   const streak = calcStreak(history);
   const dueCount = SRS.getDueCards(cards).length;
-  const weakCards = cards.filter(c=>(c.srs?.lapses||0)>=2);
+  const weakCards = cards.filter((c:any)=>(c.srs?.lapses||0)>=2);
   const almostForgotten = SRS.getAlmostForgotten(cards);
-
   const getLevelCards = () => {
     const levelOrder = ["A1","A2","B1","B2","C1"];
     const userLevelIdx = levelOrder.indexOf(level);
-    return cards.filter(c => {
-      if (!c.level || c.level === "custom") return true;
-      const cardLevelIdx = levelOrder.indexOf(c.level);
-      return cardLevelIdx <= userLevelIdx + 1;
-    });
+    return cards.filter((c:any)=>{ if(!c.level||c.level==="custom") return true; const idx=levelOrder.indexOf(c.level); return idx<=userLevelIdx+1; });
   };
-
-  const handleSessionFinish = (results, xpEarned) => {
+  const handleSessionFinish = (results: any[], xpEarned: number) => {
     const today = getDayKey();
     setHistory(h=>[...new Set([...h,today])]);
     setXp(x=>x+xpEarned);
-    setCards(prev=>{
-      const next=[...prev];
-      results.forEach(r=>{const i=next.findIndex(c=>c.id===r.card.id);if(i>=0)next[i]={...next[i],srs:r.srs};});
-      return next;
-    });
+    setCards(prev=>{ const next=[...prev]; results.forEach(r=>{const i=next.findIndex((c:any)=>c.id===r.card.id);if(i>=0)next[i]={...next[i],srs:r.srs};}); return next; });
     const mins=Math.round((Date.now()-(sessionStart||Date.now()))/60000);
     setTotal(t=>({sessions:t.sessions+1,correct:t.correct+results.filter(r=>r.correct).length,total:t.total+results.length,minutes:t.minutes+Math.max(1,mins)}));
     setActiveMode(null);setActiveLessonId(null);setCustomSessionCards(null);setScreen("home");
   };
-
-  const startMode = (mode, lessonId=null) => {
+  const startMode = (mode: string, lessonId: string|null=null) => {
     setActiveMode(mode);setActiveLessonId(lessonId);setSessionStart(Date.now());setScreen("session");
   };
-
-  const startLesson = (lesson) => {
-    setActiveMode("lesson_"+lesson.id);
-    setActiveLessonId(lesson.id);
-    setSessionStart(Date.now());
-    setScreen("session");
+  const startLesson = (lesson: any) => {
+    setActiveMode("lesson_"+lesson.id);setActiveLessonId(lesson.id);setSessionStart(Date.now());setScreen("session");
   };
-
-  const startCustomLesson = (customCards) => {
-    setCustomSessionCards(customCards);
-    setActiveMode("custom_lesson");
-    setSessionStart(Date.now());
-    setScreen("session");
+  const startCustomLesson = (customCards: any[]) => {
+    setCustomSessionCards(customCards);setActiveMode("custom_lesson");setSessionStart(Date.now());setScreen("session");
   };
-
-  // ── ЗВ'ЯЗОК З JAVA БАЗОЮ ДАНИХ (ДОДАВАННЯ СЛОВА) ──
   const addCustomWord = async () => {
     if (!addWord.en.trim()||!addWord.uk.trim()) return;
     setAddLoading(true);
-
     let transcription = addWord.transcription;
     if (!transcription) {
-      try {
-        const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(addWord.en)}`);
-        const d=await r.json();
-        transcription=d[0]?.phonetics?.find(p=>p.text)?.text||"";
-      } catch {}
+      try { const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(addWord.en)}`); const d=await r.json(); transcription=d[0]?.phonetics?.find((p:any)=>p.text)?.text||""; } catch {}
     }
-
     try {
-      const res = await fetch(`${API_URL}/words`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ original: addWord.en.trim(), translation: addWord.uk.trim(), category: lang?.id || 'en' })
-      });
-
-      if (res.ok) {
-        const savedDbWord = await res.json();
-        const newCard={id:`cust_${savedDbWord.id}`, dbId: savedDbWord.id, en:addWord.en.trim(), uk:addWord.uk.trim(), example:addWord.example.trim()||`${addWord.en} is an important word.`, tag:addWord.tag, transcription:transcription||"", level:"custom"};
-        setCards(c=>[...c,newCard]);
-      } else {
-        throw new Error();
-      }
-    } catch (err) {
-      console.error("БД недоступна, зберігаємо локально");
-      const newCard={id:"cust_"+Date.now(),en:addWord.en.trim(),uk:addWord.uk.trim(),example:addWord.example.trim()||`${addWord.en} is an important word.`,tag:addWord.tag,transcription:transcription||"",level:"custom"};
-      setCards(c=>[...c,newCard]);
-    }
-
-    setAddWord({en:"",uk:"",example:"",tag:"custom",transcription:""});
-    setAddLoading(false);
+      const res=await fetch(`${API_URL}/words`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({original:addWord.en.trim(),translation:addWord.uk.trim(),category:lang?.id||'en'})});
+      if(res.ok){const saved=await res.json();const nc={id:`cust_${saved.id}`,dbId:saved.id,en:addWord.en.trim(),uk:addWord.uk.trim(),example:addWord.example.trim()||`${addWord.en} is an important word.`,tag:addWord.tag,transcription:transcription||"",level:"custom"};setCards(c=>[...c,nc]);}
+      else throw new Error();
+    } catch { const nc={id:"cust_"+Date.now(),en:addWord.en.trim(),uk:addWord.uk.trim(),example:addWord.example.trim()||`${addWord.en} is an important word.`,tag:addWord.tag,transcription:transcription||"",level:"custom"};setCards(c=>[...c,nc]); }
+    setAddWord({en:"",uk:"",example:"",tag:"custom",transcription:""});setAddLoading(false);setShowAddForm(false);
   };
-
-  // ── ЗВ'ЯЗОК З JAVA БАЗОЮ ДАНИХ (ВИДАЛЕННЯ СЛОВА) ──
-  const deleteCard = async (id) => {
-    const card = cards.find(c => c.id === id);
-    if (card && card.id.startsWith('cust_')) {
-      const dbId = card.dbId || id.replace('cust_', '');
-      try {
-        await fetch(`${API_URL}/words/${dbId}`, { method: 'DELETE' });
-      } catch (err) { console.error("Помилка видалення з БД"); }
-    }
-    setCards(c => c.filter(c => c.id !== id));
+  const deleteCard = async (id: string) => {
+    const card=cards.find((c:any)=>c.id===id);
+    if(card&&card.id.startsWith('cust_')){const dbId=card.dbId||id.replace('cust_','');try{await fetch(`${API_URL}/words/${dbId}`,{method:'DELETE'});}catch{}}
+    setCards(c=>c.filter((c:any)=>c.id!==id));
   };
-
-  // ── SESSION ROUTER ──
+  // SESSION ROUTER
   if (screen==="session"&&activeMode) {
-    let sessionCards;
-    if (activeMode === "custom_lesson" && customSessionCards) {
-      sessionCards = customSessionCards;
-    } else if (activeLessonId) {
-      const lesson = EN_LESSONS.find(l=>"lesson_"+l.id===activeMode);
-      sessionCards = lesson ? lesson.wordIds.map(id=>cards.find(c=>c.id===id)).filter(Boolean) : getLevelCards();
-    } else {
-      sessionCards = getLevelCards();
-    }
-    const sessionMode = activeMode.startsWith("lesson_") || activeMode === "custom_lesson" ? "choice" : activeMode;
-
-    return <SessionScreen
-      cards={sessionCards}
-      mode={sessionMode}
-      speakLang={lang?.speakLang||"en-US"}
-      allCards={cards}
-      onFinish={handleSessionFinish}
-      onExit={()=>{setActiveMode(null);setActiveLessonId(null);setCustomSessionCards(null);setScreen("home");}}/>;
+    let sessionCards: any[];
+    if (activeMode==="custom_lesson"&&customSessionCards) { sessionCards=customSessionCards; }
+    else if (activeLessonId) { const lesson=EN_LESSONS.find(l=>"lesson_"+l.id===activeMode); sessionCards=lesson?lesson.wordIds.map(id=>cards.find((c:any)=>c.id===id)).filter(Boolean):getLevelCards(); }
+    else { sessionCards=getLevelCards(); }
+    const sessionMode=activeMode.startsWith("lesson_")||activeMode==="custom_lesson"?"choice":activeMode;
+    return <SessionScreen cards={sessionCards} mode={sessionMode} speakLang={lang?.speakLang||"en-US"} allCards={cards} onFinish={handleSessionFinish} onExit={()=>{setActiveMode(null);setActiveLessonId(null);setCustomSessionCards(null);setScreen("home");}}/>;
   }
-
   // ── WELCOME ──
   if (screen==="welcome") return (
-    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"24px 20px" }}>
       <style>{GLOBAL_CSS}</style>
-      <div style={{ textAlign:"center", maxWidth:360, animation:"fadeUp .6s ease" }}>
-        <div style={{ fontSize:72, marginBottom:16 }}>🦜</div>
-        <h1 style={{ fontWeight:900, fontSize:42, color:"var(--green)", letterSpacing:-1, marginBottom:8 }}>LinguaFlow</h1>
-        <p style={{ color:"var(--text2)", fontSize:16, fontWeight:600, marginBottom:40 }}>Вчи мови так, як мозок<br/>запам'ятовує назавжди</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-          <GlowBtn onClick={()=>setScreen("register")} style={{ padding:"18px", fontSize:16, width:"100%" }}>🚀 Почати вчитися</GlowBtn>
-          <button onClick={()=>setScreen("login")} style={{ background:"var(--bg3)", color:"var(--text2)", border:"1px solid var(--border)", borderRadius:16, padding:"16px", fontWeight:800, fontSize:15, cursor:"pointer" }}>Вже маю акаунт</button>
+      <div style={{ textAlign:"center", maxWidth:340, width:"100%", animation:"fadeUp .6s ease" }}>
+        <div style={{ fontSize:64, marginBottom:14 }}>🦜</div>
+        <h1 style={{ fontWeight:900, fontSize:38, color:"var(--green)", letterSpacing:-1, marginBottom:6 }}>LinguaFlow</h1>
+        <p style={{ color:"var(--text2)", fontSize:15, fontWeight:600, marginBottom:36 }}>Вчи мови так, як мозок<br/>запам'ятовує назавжди</p>
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <GlowBtn onClick={()=>setScreen("register")} style={{ padding:"17px", fontSize:15, width:"100%" }}>🚀 Почати вчитися</GlowBtn>
+          <button onClick={()=>setScreen("login")} style={{ background:"var(--bg3)", color:"var(--text2)", border:"1px solid var(--border)", borderRadius:16, padding:"15px", fontWeight:800, fontSize:14, cursor:"pointer" }}>Вже маю акаунт</button>
         </div>
       </div>
     </div>
   );
-
   // ── REGISTER / LOGIN ──
   if (screen==="register"||screen==="login") {
     const isReg = screen==="register";
     return (
-      <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px 16px" }}>
         <style>{GLOBAL_CSS}</style>
-        <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:24, padding:36, width:"100%", maxWidth:380, animation:"popIn .4s ease" }}>
-          <h2 style={{ fontWeight:900, fontSize:24, marginBottom:28, textAlign:"center" }}>{isReg?"Новий акаунт":"Увійти"}</h2>
-          <div style={{ display:"flex", flexDirection:"column", gap:14, marginBottom:24 }}>
-            {isReg&&<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ваше ім'я" style={{ padding:"16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontSize:15, fontWeight:700 }}/>}
-            <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email" style={{ padding:"16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontSize:15, fontWeight:700 }}/>
-            <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Пароль" style={{ padding:"16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontSize:15, fontWeight:700 }}/>
+        <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:22, padding:"28px 20px", width:"100%", maxWidth:360, animation:"popIn .4s ease" }}>
+          <h2 style={{ fontWeight:900, fontSize:22, marginBottom:24, textAlign:"center" }}>{isReg?"Новий акаунт":"Увійти"}</h2>
+          <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
+            {isReg&&<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ваше ім'я" style={{ padding:"14px 16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:14, fontWeight:700, width:"100%" }}/>}
+            <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email" style={{ padding:"14px 16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:14, fontWeight:700, width:"100%" }}/>
+            <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onKeyDown={e=>e.key==="Enter"&&handleAuth(isReg)} placeholder="Пароль" style={{ padding:"14px 16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:14, fontWeight:700, width:"100%" }}/>
           </div>
-          <GlowBtn onClick={() => handleAuth(isReg)} style={{ width:"100%", padding:"16px", fontSize:15 }}>
-            {isReg?"Зареєструватись":"Увійти"}
-          </GlowBtn>
-          <button onClick={()=>setScreen("welcome")} style={{ background:"none", border:"none", color:"var(--text3)", fontWeight:700, width:"100%", marginTop:16, cursor:"pointer" }}>← Назад</button>
+          <GlowBtn onClick={()=>handleAuth(isReg)} style={{ width:"100%", padding:"15px", fontSize:14 }}>{isReg?"Зареєструватись":"Увійти"}</GlowBtn>
+          <button onClick={()=>setScreen(isReg?"login":"register")} style={{ background:"none", border:"none", color:"var(--text3)", fontWeight:700, width:"100%", marginTop:12, cursor:"pointer", fontSize:13 }}>
+            {isReg?"Вже є акаунт? Увійти":"Немає акаунту? Реєстрація"}
+          </button>
+          <button onClick={()=>setScreen("welcome")} style={{ background:"none", border:"none", color:"var(--text3)", fontWeight:700, width:"100%", marginTop:4, cursor:"pointer", fontSize:13 }}>← Назад</button>
         </div>
       </div>
     );
   }
-
   // ── PICK LANGUAGE ──
   if (screen==="pick_lang") return (
-    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"24px 16px" }}>
       <style>{GLOBAL_CSS}</style>
-      <div style={{ maxWidth:420, width:"100%", animation:"fadeUp .5s ease" }}>
-        <h2 style={{ fontWeight:900, fontSize:28, marginBottom:6 }}>Яку мову вчиш? 🌍</h2>
-        <p style={{ color:"var(--text2)", marginBottom:30, fontSize:15 }}>Обери мову для навчання</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+      <div style={{ maxWidth:380, width:"100%", animation:"fadeUp .5s ease" }}>
+        <h2 style={{ fontWeight:900, fontSize:26, marginBottom:4 }}>Яку мову вчиш? 🌍</h2>
+        <p style={{ color:"var(--text2)", marginBottom:24, fontSize:14 }}>Обери мову для навчання</p>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {LANGUAGES.map(l=>(
-            <button key={l.id} onClick={()=>{
-              setLang(l);
-              fetchWordsFromBackend(l.id);
-              setScreen("pick_goal");
-            }} style={{ display:"flex", alignItems:"center", gap:18, padding:"18px 20px", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:18, cursor:"pointer", textAlign:"left", transition:"all .2s" }}>
-              <span style={{ fontSize:36, lineHeight:1 }}>{l.flag}</span>
+            <button key={l.id} onClick={()=>{ setLang(l); fetchWordsFromBackend(l.id); setScreen("pick_goal"); }} style={{ display:"flex", alignItems:"center", gap:16, padding:"16px 18px", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:16, cursor:"pointer", textAlign:"left", transition:"all .2s" }}>
+              <span style={{ fontSize:32 }}>{l.flag}</span>
               <div>
-                <div style={{ fontWeight:900, fontSize:17, color:"var(--text1)" }}>{l.name}</div>
-                <div style={{ color:"var(--text3)", fontSize:13, fontWeight:600 }}>{l.native}</div>
+                <div style={{ fontWeight:900, fontSize:16, color:"var(--text1)" }}>{l.name}</div>
+                <div style={{ color:"var(--text3)", fontSize:12, fontWeight:600 }}>{l.native}</div>
               </div>
             </button>
           ))}
@@ -1261,126 +1089,114 @@ export default function App() {
       </div>
     </div>
   );
-
   // ── PICK GOAL ──
   if (screen==="pick_goal") return (
-    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, overflowY:"auto" }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"24px 16px", overflowY:"auto" }}>
       <style>{GLOBAL_CSS}</style>
-      <div style={{ maxWidth:460, width:"100%", animation:"fadeUp .5s ease" }}>
-        <h2 style={{ fontWeight:900, fontSize:28, marginBottom:6 }}>Яка мета? 🎯</h2>
-        <p style={{ color:"var(--text2)", marginBottom:30 }}>Це впливає на підбір слів та вправ</p>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:24 }}>
+      <div style={{ maxWidth:400, width:"100%", animation:"fadeUp .5s ease" }}>
+        <h2 style={{ fontWeight:900, fontSize:26, marginBottom:4 }}>Яка мета? 🎯</h2>
+        <p style={{ color:"var(--text2)", marginBottom:24, fontSize:14 }}>Це впливає на підбір слів та вправ</p>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
           {GOALS.map(g=>(
-            <button key={g.id} onClick={()=>setGoal(g.id)} style={{ padding:"18px", background:goal===g.id?"var(--green)22":"var(--bg3)", border:`1px solid ${goal===g.id?"var(--green)":"var(--border)"}`, borderRadius:16, cursor:"pointer", textAlign:"left", transition:"all .15s" }}>
-              <div style={{ fontSize:28, marginBottom:8 }}>{g.emoji}</div>
-              <div style={{ fontWeight:900, fontSize:14, color:goal===g.id?"var(--green)":"var(--text1)" }}>{g.label}</div>
-              <div style={{ color:"var(--text3)", fontSize:12, marginTop:4 }}>{g.desc}</div>
+            <button key={g.id} onClick={()=>setGoal(g.id)} style={{ padding:"16px 12px", background:goal===g.id?"var(--green)22":"var(--bg3)", border:`1px solid ${goal===g.id?"var(--green)":"var(--border)"}`, borderRadius:14, cursor:"pointer", textAlign:"left", transition:"all .15s" }}>
+              <div style={{ fontSize:26, marginBottom:6 }}>{g.emoji}</div>
+              <div style={{ fontWeight:900, fontSize:13, color:goal===g.id?"var(--green)":"var(--text1)" }}>{g.label}</div>
+              <div style={{ color:"var(--text3)", fontSize:11, marginTop:3 }}>{g.desc}</div>
             </button>
           ))}
         </div>
-        <h3 style={{ fontWeight:800, fontSize:18, marginBottom:14 }}>Рівень мови</h3>
-        <div style={{ display:"flex", gap:10, marginBottom:30 }}>
-          {LEVELS.map(l=><button key={l} onClick={()=>setLevel(l)} style={{ flex:1, padding:"12px 8px", background:level===l?"var(--purple)":"var(--bg3)", border:`1px solid ${level===l?"var(--purple)":"var(--border)"}`, borderRadius:12, fontWeight:900, fontSize:15, color:level===l?"white":"var(--text2)", cursor:"pointer", transition:"all .15s" }}>{l}</button>)}
+        <h3 style={{ fontWeight:800, fontSize:16, marginBottom:12 }}>Рівень мови</h3>
+        <div style={{ display:"flex", gap:8, marginBottom:24 }}>
+          {LEVELS.map(l=><button key={l} onClick={()=>setLevel(l)} style={{ flex:1, padding:"11px 6px", background:level===l?"var(--purple)":"var(--bg3)", border:`1px solid ${level===l?"var(--purple)":"var(--border)"}`, borderRadius:12, fontWeight:900, fontSize:14, color:level===l?"white":"var(--text2)", cursor:"pointer", transition:"all .15s" }}>{l}</button>)}
         </div>
-        <GlowBtn onClick={()=>setScreen("home")} disabled={!goal} style={{ width:"100%", padding:"18px", fontSize:16 }}>Починаємо! →</GlowBtn>
+        <GlowBtn onClick={()=>setScreen("home")} disabled={!goal} style={{ width:"100%", padding:"16px", fontSize:15 }}>Починаємо! →</GlowBtn>
       </div>
     </div>
   );
-
   // ── MAIN APP ──
   const TABS = [
-    {id:"home",       icon:"🏠",label:"Головна"},
-    {id:"lessons",    icon:"📚",label:"Уроки"},
-    {id:"ai",         icon:"🤖",label:"AI"},
-    {id:"dictionary", icon:"📖",label:"Словник"},
-    {id:"profile",    icon:"👤",label:"Профіль"},
+    {id:"home",icon:"🏠",label:"Головна"},
+    {id:"lessons",icon:"📚",label:"Уроки"},
+    {id:"ai",icon:"🤖",label:"AI"},
+    {id:"dictionary",icon:"📖",label:"Словник"},
+    {id:"profile",icon:"👤",label:"Профіль"},
   ];
-
   const levelFilteredCards = getLevelCards();
-  const filteredCards = cards.filter(c=>{
-    const matchTag  = dictTag==="all"||c.tag===dictTag;
-    const matchSearch = !dictSearch||c.en.toLowerCase().includes(dictSearch.toLowerCase())||c.uk.toLowerCase().includes(dictSearch.toLowerCase());
+  const filteredCards = cards.filter((c:any)=>{
+    const matchTag=dictTag==="all"||c.tag===dictTag;
+    const matchSearch=!dictSearch||c.en.toLowerCase().includes(dictSearch.toLowerCase())||c.uk.toLowerCase().includes(dictSearch.toLowerCase());
     return matchTag&&matchSearch;
   });
-
   return (
-    <div style={{ minHeight:"100vh", background:"var(--bg)", paddingBottom:80 }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", paddingBottom:"calc(64px + var(--safe-bottom))" }}>
       <style>{GLOBAL_CSS}</style>
-
       {/* HEADER */}
-      <div style={{ background:"var(--bg2)", borderBottom:"1px solid var(--border)", padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:18 }}>{lang?.flag}</span>
-          <span style={{ fontWeight:900, fontSize:14, color:"var(--text2)", textTransform:"uppercase", letterSpacing:1 }}>{lang?.name}</span>
-          <span style={{ background:"var(--purple)22", color:"var(--purple)", border:"1px solid var(--purple)44", borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:800 }}>{level}</span>
+      <div style={{ background:"var(--bg2)", borderBottom:"1px solid var(--border)", padding:"12px 16px", paddingTop:"calc(12px + var(--safe-top))", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ fontSize:16 }}>{lang?.flag}</span>
+          <span style={{ fontWeight:900, fontSize:12, color:"var(--text2)", textTransform:"uppercase", letterSpacing:.8 }}>{lang?.name}</span>
+          <span style={{ background:"var(--purple)22", color:"var(--purple)", border:"1px solid var(--purple)44", borderRadius:7, padding:"2px 7px", fontSize:10, fontWeight:800 }}>{level}</span>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <span style={{ fontWeight:900, color:"var(--orange)", fontSize:15 }}>🔥 {streak}</span>
-          <span style={{ fontWeight:900, color:"var(--yellow)", fontSize:15 }}>⭐ {xp}</span>
-          {dueCount>0&&<span style={{ background:"var(--red)", color:"white", borderRadius:10, padding:"2px 8px", fontWeight:900, fontSize:12 }}>{dueCount}</span>}
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <span style={{ fontWeight:900, color:"var(--orange)", fontSize:14 }}>🔥 {streak}</span>
+          <span style={{ fontWeight:900, color:"var(--yellow)", fontSize:14 }}>⭐ {xp}</span>
+          {dueCount>0&&<span style={{ background:"var(--red)", color:"white", borderRadius:9, padding:"2px 7px", fontWeight:900, fontSize:11 }}>{dueCount}</span>}
         </div>
       </div>
-
       {/* HOME */}
       {screen==="home" && (
-        <div style={{ padding:"24px 20px", maxWidth:600, margin:"0 auto" }}>
-          <div style={{ marginBottom:20, animation:"fadeUp .4s ease" }}>
-            <h1 style={{ fontWeight:900, fontSize:28, marginBottom:4 }}>Привіт, {user?.name?.split(" ")[0]} 👋</h1>
-            <p style={{ color:"var(--text2)", fontWeight:600 }}>{dueCount>0?`${dueCount} карток чекають на повторення`:"Всі картки на сьогодні повторено! 🎉"}</p>
+        <div style={{ padding:"16px", maxWidth:600, margin:"0 auto" }}>
+          <div style={{ marginBottom:16, animation:"fadeUp .4s ease" }}>
+            <h1 style={{ fontWeight:900, fontSize:24, marginBottom:2 }}>Привіт, {user?.name?.split(" ")[0]} 👋</h1>
+            <p style={{ color:"var(--text2)", fontWeight:600, fontSize:13 }}>{dueCount>0?`${dueCount} карток чекають на повторення`:"Всі картки на сьогодні повторено! 🎉"}</p>
           </div>
-
           <ToxicBanner streak={streak} almostForgotten={almostForgotten} weakCards={weakCards}/>
-
           {almostForgotten.length>0&&(
-            <div style={{ background:"var(--orange)11", border:"1px solid var(--orange)44", borderRadius:16, padding:"14px 18px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div>
-                <div style={{ fontWeight:900, fontSize:14, color:"var(--orange)" }}>⚡ Майже забудеш!</div>
-                <div style={{ fontSize:13, color:"var(--text2)", marginTop:2 }}>{almostForgotten.slice(0,3).map(c=>c.en).join(", ")}</div>
+            <div style={{ background:"var(--orange)11", border:"1px solid var(--orange)44", borderRadius:14, padding:"12px 14px", marginBottom:12, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:900, fontSize:13, color:"var(--orange)" }}>⚡ Майже забудеш!</div>
+                <div style={{ fontSize:12, color:"var(--text2)", marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{almostForgotten.slice(0,3).map((c:any)=>c.en).join(", ")}</div>
               </div>
-              <button onClick={()=>startMode("choice")} style={{ background:"var(--orange)", border:"none", borderRadius:10, padding:"8px 14px", fontWeight:900, fontSize:13, cursor:"pointer", color:"#000" }}>Повтори!</button>
+              <button onClick={()=>startMode("choice")} style={{ background:"var(--orange)", border:"none", borderRadius:10, padding:"8px 13px", fontWeight:900, fontSize:12, cursor:"pointer", color:"#000", flexShrink:0 }}>Повтори!</button>
             </div>
           )}
-
           {/* Stats */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:24 }}>
+          <div className="stats-grid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
             {[
               {emoji:"🔥",value:streak,label:"Streak",color:"var(--orange)"},
               {emoji:"⭐",value:xp,label:"XP",color:"var(--yellow)"},
-              {emoji:"📚",value:levelFilteredCards.filter(c=>(c.srs?.repetitions||0)>=1).length,label:"Вивчено",color:"var(--blue)"},
+              {emoji:"📚",value:levelFilteredCards.filter((c:any)=>(c.srs?.repetitions||0)>=1).length,label:"Вивчено",color:"var(--blue)"},
             ].map(s=>(
-              <div key={s.label} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:16, padding:"16px 12px", textAlign:"center" }}>
-                <div style={{ fontSize:24, marginBottom:4 }}>{s.emoji}</div>
-                <div style={{ fontWeight:900, fontSize:22, color:s.color }}>{s.value}</div>
-                <div style={{ color:"var(--text3)", fontSize:12, fontWeight:700 }}>{s.label}</div>
+              <div key={s.label} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:14, padding:"14px 8px", textAlign:"center" }}>
+                <div style={{ fontSize:22, marginBottom:3 }}>{s.emoji}</div>
+                <div style={{ fontWeight:900, fontSize:20, color:s.color }}>{s.value}</div>
+                <div style={{ color:"var(--text3)", fontSize:11, fontWeight:700 }}>{s.label}</div>
               </div>
             ))}
           </div>
-
           {dueCount>0&&(
-            <div style={{ background:"linear-gradient(135deg,var(--green)22,var(--blue)22)", border:"1px solid var(--green)44", borderRadius:20, padding:"20px", marginBottom:24, animation:"glow 3s infinite" }}>
-              <div style={{ fontWeight:900, fontSize:16, marginBottom:4 }}>⏰ Час повторювати!</div>
-              <div style={{ color:"var(--text2)", fontSize:13, marginBottom:14 }}>{dueCount} карток пора повторити. Алгоритм підібрав ідеальний момент для твого рівня {level}.</div>
-              <GlowBtn onClick={()=>startMode("choice")} style={{ padding:"12px 24px" }}>Почати сесію →</GlowBtn>
+            <div style={{ background:"linear-gradient(135deg,var(--green)22,var(--blue)22)", border:"1px solid var(--green)44", borderRadius:18, padding:"18px", marginBottom:18, animation:"glow 3s infinite" }}>
+              <div style={{ fontWeight:900, fontSize:15, marginBottom:3 }}>⏰ Час повторювати!</div>
+              <div style={{ color:"var(--text2)", fontSize:12, marginBottom:12 }}>{dueCount} карток пора повторити. Алгоритм підібрав ідеальний момент для рівня {level}.</div>
+              <GlowBtn onClick={()=>startMode("choice")} style={{ padding:"11px 22px", fontSize:14 }}>Почати сесію →</GlowBtn>
             </div>
           )}
-
           {/* AI promo */}
-          <div onClick={()=>setScreen("ai")} style={{ background:"linear-gradient(135deg,var(--purple)22,var(--blue)22)", border:"1px solid var(--purple)44", borderRadius:20, padding:"16px 20px", marginBottom:24, cursor:"pointer" }}>
+          <div onClick={()=>setScreen("ai")} style={{ background:"linear-gradient(135deg,var(--purple)22,var(--blue)22)", border:"1px solid var(--purple)44", borderRadius:18, padding:"14px 16px", marginBottom:18, cursor:"pointer" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-              <span style={{ fontSize:24 }}>🤖</span>
+              <span style={{ fontSize:22 }}>🤖</span>
               <div>
-                <div style={{ fontWeight:900, fontSize:15, color:"var(--purple)" }}>AI-вчитель</div>
-                <div style={{ fontSize:12, color:"var(--text2)" }}>Пояснення • Рольові ігри • Живі фрази</div>
+                <div style={{ fontWeight:900, fontSize:14, color:"var(--purple)" }}>AI-вчитель</div>
+                <div style={{ fontSize:11, color:"var(--text2)" }}>Пояснення • Рольові ігри • Живі фрази</div>
               </div>
             </div>
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-              {["☕ Кава","😏 Флірт","🎵 TikTok","😤 Сварка"].map(s=><span key={s} style={{ background:"var(--purple)22", color:"var(--purple)", border:"1px solid var(--purple)33", borderRadius:8, padding:"3px 8px", fontSize:12, fontWeight:700 }}>{s}</span>)}
+            <div className="scroll-x" style={{ display:"flex", gap:6 }}>
+              {["☕ Кава","😏 Флірт","🎵 TikTok","😤 Сварка"].map(s=><span key={s} style={{ background:"var(--purple)22", color:"var(--purple)", border:"1px solid var(--purple)33", borderRadius:8, padding:"3px 8px", fontSize:11, fontWeight:700, flexShrink:0 }}>{s}</span>)}
             </div>
           </div>
-
           {/* Modes */}
-          <div style={{ fontWeight:900, color:"var(--text2)", textTransform:"uppercase", letterSpacing:1, fontSize:12, marginBottom:12 }}>РЕЖИМИ НАВЧАННЯ</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <div style={{ fontWeight:900, color:"var(--text2)", textTransform:"uppercase", letterSpacing:1, fontSize:11, marginBottom:10 }}>РЕЖИМИ НАВЧАННЯ</div>
+          <div className="modes-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {[
               {mode:"choice",emoji:"🎯",label:"Тест",desc:"Оберіть переклад",color:"var(--blue)"},
               {mode:"type",emoji:"⌨️",label:"Введення",desc:"Напишіть переклад",color:"var(--green)"},
@@ -1389,107 +1205,100 @@ export default function App() {
               {mode:"matching",emoji:"🔗",label:"Пари",desc:"З'єднай слова",color:"var(--yellow)"},
               {mode:"dictation",emoji:"🎧",label:"Диктант",desc:"Слухай та пиши",color:"var(--red)"},
             ].map(m=>(
-              <button key={m.mode} onClick={()=>startMode(m.mode)} className="btn-press" style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:16, padding:"16px", textAlign:"left", cursor:"pointer" }}>
-                <div style={{ fontSize:26, marginBottom:6 }}>{m.emoji}</div>
-                <div style={{ fontWeight:900, fontSize:14, color:m.color, marginBottom:2 }}>{m.label}</div>
+              <button key={m.mode} onClick={()=>startMode(m.mode)} className="btn-press" style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:14, padding:"14px 12px", textAlign:"left", cursor:"pointer" }}>
+                <div style={{ fontSize:24, marginBottom:4 }}>{m.emoji}</div>
+                <div style={{ fontWeight:900, fontSize:13, color:m.color, marginBottom:1 }}>{m.label}</div>
                 <div style={{ color:"var(--text3)", fontSize:11 }}>{m.desc}</div>
               </button>
             ))}
           </div>
-
           {weakCards.length>0&&(
-            <div style={{ background:"var(--red)11", border:"1px solid var(--red)33", borderRadius:16, padding:"16px", marginTop:20 }}>
-              <div style={{ fontWeight:900, fontSize:15, color:"var(--red)", marginBottom:10 }}>⚠️ Слабкі слова ({weakCards.length})</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
-                {weakCards.slice(0,6).map(c=><span key={c.id} style={{ background:"var(--red)22", color:"var(--red)", border:"1px solid var(--red)44", borderRadius:8, padding:"3px 8px", fontSize:13, fontWeight:700 }}>{c.en}</span>)}
+            <div style={{ background:"var(--red)11", border:"1px solid var(--red)33", borderRadius:14, padding:"14px", marginTop:16 }}>
+              <div style={{ fontWeight:900, fontSize:14, color:"var(--red)", marginBottom:8 }}>⚠️ Слабкі слова ({weakCards.length})</div>
+              <div className="scroll-x" style={{ display:"flex", gap:6, marginBottom:10 }}>
+                {weakCards.slice(0,6).map((c:any)=><span key={c.id} style={{ background:"var(--red)22", color:"var(--red)", border:"1px solid var(--red)44", borderRadius:8, padding:"3px 8px", fontSize:12, fontWeight:700, flexShrink:0 }}>{c.en}</span>)}
               </div>
-              <button onClick={()=>{setCards(c=>c.map(card=>weakCards.includes(card)?{...card,srs:{...card.srs,nextReview:Date.now()}}:card));startMode("choice");}} style={{ background:"var(--red)", color:"white", border:"none", borderRadius:10, padding:"10px 18px", fontWeight:800, fontSize:14, cursor:"pointer" }}>Повторити слабкі</button>
+              <button onClick={()=>{ setCards((c:any)=>c.map((card:any)=>weakCards.includes(card)?{...card,srs:{...card.srs,nextReview:Date.now()}}:card)); startMode("choice"); }} style={{ background:"var(--red)", color:"white", border:"none", borderRadius:10, padding:"9px 16px", fontWeight:800, fontSize:13, cursor:"pointer" }}>Повторити слабкі</button>
             </div>
           )}
         </div>
       )}
-
       {/* LESSONS */}
       {screen==="lessons" && (
-        <LessonsTab
-          cards={cards}
-          level={level}
-          langId={lang?.id||"en"}
-          onStartLesson={startLesson}
-          onStartCustomLesson={startCustomLesson}
-        />
+        <LessonsTab cards={cards} level={level} langId={lang?.id||"en"} onStartLesson={startLesson} onStartCustomLesson={startCustomLesson}/>
       )}
-
       {/* AI */}
       {screen==="ai" && (
         <div style={{ maxWidth:600, margin:"0 auto" }}>
-          <div style={{ padding:"20px 20px 12px", borderBottom:"1px solid var(--border)" }}>
-            <h2 style={{ fontWeight:900, fontSize:22, marginBottom:2 }}>🤖 AI-вчитель</h2>
-            <p style={{ color:"var(--text2)", fontSize:13 }}>Питай що завгодно • Рольові ігри • Живі сценарії</p>
+          <div style={{ padding:"16px", borderBottom:"1px solid var(--border)" }}>
+            <h2 style={{ fontWeight:900, fontSize:20, marginBottom:1 }}>🤖 AI-вчитель</h2>
+            <p style={{ color:"var(--text2)", fontSize:12 }}>Питай що завгодно • Рольові ігри • Живі сценарії</p>
           </div>
           <AIChatScreen userName={user?.name} langName={lang?.name} level={level} cards={cards}/>
         </div>
       )}
-
       {/* DICTIONARY */}
       {screen==="dictionary" && (
-        <div style={{ padding:"24px 20px", maxWidth:600, margin:"0 auto" }}>
-          <h2 style={{ fontWeight:900, fontSize:24, marginBottom:20 }}>📖 Словник</h2>
-
-          {/* Add form */}
-          <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:20, padding:"20px", marginBottom:20 }}>
-            <h3 style={{ fontWeight:900, fontSize:16, marginBottom:14 }}>+ Додати своє слово</h3>
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-              <input value={addWord.en} onChange={e=>setAddWord({...addWord,en:e.target.value})} placeholder="Слово (мовою навчання)" style={{ padding:"14px", background:"var(--bg4)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:15, fontWeight:700 }}/>
-              <input value={addWord.uk} onChange={e=>setAddWord({...addWord,uk:e.target.value})} placeholder="Переклад (українською)" style={{ padding:"14px", background:"var(--bg4)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:15, fontWeight:700 }}/>
-              <input value={addWord.example} onChange={e=>setAddWord({...addWord,example:e.target.value})} placeholder="Приклад речення (необов'язково)" style={{ padding:"14px", background:"var(--bg4)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:15, fontWeight:700 }}/>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                {TAGS.filter(t=>t.id!=="all").map(t=><Tag key={t.id} tag={t.id} selected={addWord.tag===t.id} onClick={()=>setAddWord({...addWord,tag:t.id})}/>)}
-              </div>
-              <p style={{ color:"var(--text3)", fontSize:12 }}>✅ Слово з'явиться у словнику та збережеться у вашій базі даних</p>
-              <GlowBtn onClick={addCustomWord} disabled={!addWord.en.trim()||!addWord.uk.trim()||addLoading} style={{ width:"100%", padding:"14px" }}>
-                {addLoading?"Додаємо...":"Зберегти в базу"}
-              </GlowBtn>
-            </div>
+        <div style={{ padding:"16px", maxWidth:600, margin:"0 auto" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+            <h2 style={{ fontWeight:900, fontSize:22 }}>📖 Словник</h2>
+            <button onClick={()=>setShowAddForm(f=>!f)} style={{ background:showAddForm?"var(--green)":"var(--bg3)", color:showAddForm?"#000":"var(--green)", border:`1px solid var(--green)`, borderRadius:12, padding:"8px 14px", fontWeight:900, fontSize:13, cursor:"pointer", transition:"all .2s" }}>
+              {showAddForm?"✕ Закрити":"+ Додати"}
+            </button>
           </div>
-
+          {/* Add form - collapsible */}
+          {showAddForm && (
+            <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:18, padding:"16px", marginBottom:16, animation:"fadeUp .2s ease" }}>
+              <h3 style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Додати своє слово</h3>
+              <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+                <input value={addWord.en} onChange={e=>setAddWord({...addWord,en:e.target.value})} placeholder="Слово (мовою навчання)" style={{ padding:"13px 14px", background:"var(--bg4)", border:"1px solid var(--border2)", borderRadius:11, color:"var(--text1)", fontSize:14, fontWeight:700 }}/>
+                <input value={addWord.uk} onChange={e=>setAddWord({...addWord,uk:e.target.value})} placeholder="Переклад (українською)" style={{ padding:"13px 14px", background:"var(--bg4)", border:"1px solid var(--border2)", borderRadius:11, color:"var(--text1)", fontSize:14, fontWeight:700 }}/>
+                <input value={addWord.example} onChange={e=>setAddWord({...addWord,example:e.target.value})} placeholder="Приклад (необов'язково)" style={{ padding:"13px 14px", background:"var(--bg4)", border:"1px solid var(--border2)", borderRadius:11, color:"var(--text1)", fontSize:14, fontWeight:700 }}/>
+                <div className="scroll-x" style={{ display:"flex", gap:6, paddingBottom:2 }}>
+                  {TAGS.filter(t=>t.id!=="all").map(t=><Tag key={t.id} tag={t.id} selected={addWord.tag===t.id} onClick={()=>setAddWord({...addWord,tag:t.id})}/>)}
+                </div>
+                <GlowBtn onClick={addCustomWord} disabled={!addWord.en.trim()||!addWord.uk.trim()||addLoading} style={{ width:"100%", padding:"13px" }}>
+                  {addLoading?"Додаємо...":"Зберегти"}
+                </GlowBtn>
+              </div>
+            </div>
+          )}
           {/* Search */}
-          <input value={dictSearch} onChange={e=>setDictSearch(e.target.value)} placeholder="🔍 Пошук слова..." style={{ width:"100%", padding:"14px 18px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:14, color:"var(--text1)", fontSize:15, fontWeight:700, marginBottom:12, boxSizing:"border-box" }}/>
-          <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:12, marginBottom:16 }}>
+          <input value={dictSearch} onChange={e=>setDictSearch(e.target.value)} placeholder="🔍 Пошук слова..." style={{ width:"100%", padding:"13px 16px", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:12, color:"var(--text1)", fontSize:14, fontWeight:700, marginBottom:10 }}/>
+          <div className="scroll-x" style={{ display:"flex", gap:7, paddingBottom:10, marginBottom:12 }}>
             {TAGS.map(t=><Tag key={t.id} tag={t.id} selected={dictTag===t.id} onClick={()=>setDictTag(t.id)}/>)}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {filteredCards.slice(0,60).map(card=>(
-              <div key={card.id} style={{ background:"var(--bg3)", borderRadius:14, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
-                    <span style={{ fontWeight:900, fontSize:16 }}>{card.en}</span>
-                    {card.level&&<span style={{ background:"var(--bg4)", color:"var(--text3)", borderRadius:6, padding:"1px 6px", fontSize:10, fontWeight:800 }}>{card.level}</span>}
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            {filteredCards.slice(0,60).map((card:any)=>(
+              <div key={card.id} style={{ background:"var(--bg3)", borderRadius:12, padding:"12px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2, flexWrap:"wrap" }}>
+                    <span style={{ fontWeight:900, fontSize:15 }}>{card.en}</span>
+                    {card.level&&<span style={{ background:"var(--bg4)", color:"var(--text3)", borderRadius:5, padding:"1px 5px", fontSize:9, fontWeight:800 }}>{card.level}</span>}
                     <SRSBadge card={card}/>
                   </div>
-                  <div style={{ color:"var(--text3)", fontSize:12, fontFamily:"'Space Mono',monospace" }}>{card.transcription}</div>
-                  <div style={{ color:"var(--blue)", fontWeight:700, fontSize:14 }}>{card.uk}</div>
+                  <div style={{ color:"var(--text3)", fontSize:11, fontFamily:"'Space Mono',monospace" }}>{card.transcription}</div>
+                  <div style={{ color:"var(--blue)", fontWeight:700, fontSize:13 }}>{card.uk}</div>
                 </div>
-                <div style={{ display:"flex", gap:6 }}>
-                  <button onClick={()=>speak(card.en,lang?.speakLang)} style={{ background:"var(--blue)22", border:"none", borderRadius:8, width:34, height:34, color:"var(--blue)", cursor:"pointer", fontSize:16 }}>🔊</button>
-                  {card.id.startsWith("cust_")&&<button onClick={()=>deleteCard(card.id)} style={{ background:"var(--red)22", border:"none", borderRadius:8, width:34, height:34, color:"var(--red)", cursor:"pointer", fontSize:14 }}>✕</button>}
+                <div style={{ display:"flex", gap:5, flexShrink:0 }}>
+                  <button onClick={()=>speak(card.en,lang?.speakLang)} style={{ background:"var(--blue)22", border:"none", borderRadius:8, width:34, height:34, color:"var(--blue)", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>🔊</button>
+                  {card.id.startsWith("cust_")&&<button onClick={()=>deleteCard(card.id)} style={{ background:"var(--red)22", border:"none", borderRadius:8, width:34, height:34, color:"var(--red)", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>}
                 </div>
               </div>
             ))}
-            {filteredCards.length===0&&<div style={{ textAlign:"center", padding:40, color:"var(--text3)", fontWeight:700 }}>Нічого не знайдено</div>}
+            {filteredCards.length===0&&<div style={{ textAlign:"center", padding:36, color:"var(--text3)", fontWeight:700 }}>Нічого не знайдено</div>}
           </div>
         </div>
       )}
-
       {/* PROFILE */}
       {screen==="profile" && (
-        <div style={{ padding:"24px 20px", maxWidth:600, margin:"0 auto" }}>
-          <div style={{ background:"linear-gradient(135deg,var(--purple-dark),var(--blue-dark))", borderRadius:24, padding:"28px 24px", textAlign:"center", marginBottom:24 }}>
-            <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:36, margin:"0 auto 12px" }}>🦜</div>
-            <h2 style={{ fontWeight:900, fontSize:26, marginBottom:4 }}>{user?.name}</h2>
-            <p style={{ color:"rgba(255,255,255,.7)", fontSize:15 }}>{lang?.flag} {lang?.name} • {level} • {GOALS.find(g=>g.id===goal)?.emoji} {GOALS.find(g=>g.id===goal)?.label}</p>
+        <div style={{ padding:"16px", maxWidth:600, margin:"0 auto" }}>
+          <div style={{ background:"linear-gradient(135deg,var(--purple-dark),var(--blue-dark))", borderRadius:22, padding:"24px 20px", textAlign:"center", marginBottom:20 }}>
+            <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 10px" }}>🦜</div>
+            <h2 style={{ fontWeight:900, fontSize:22, marginBottom:3 }}>{user?.name}</h2>
+            <p style={{ color:"rgba(255,255,255,.7)", fontSize:13 }}>{lang?.flag} {lang?.name} • {level} • {GOALS.find(g=>g.id===goal)?.emoji} {GOALS.find(g=>g.id===goal)?.label}</p>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:24 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
             {[
               {emoji:"🔥",value:streak,label:"Streak днів",color:"var(--orange)"},
               {emoji:"⭐",value:xp,label:"Всього XP",color:"var(--yellow)"},
@@ -1498,44 +1307,43 @@ export default function App() {
               {emoji:"✅",value:totalStats.correct,label:"Правильних",color:"var(--green)"},
               {emoji:"🎯",value:totalStats.total>0?`${Math.round(totalStats.correct/totalStats.total*100)}%`:"—",label:"Точність",color:"var(--green)"},
             ].map(s=>(
-              <div key={s.label} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:16, padding:"16px", textAlign:"center" }}>
-                <div style={{ fontSize:24, marginBottom:4 }}>{s.emoji}</div>
-                <div style={{ fontWeight:900, fontSize:20, color:s.color }}>{s.value}</div>
-                <div style={{ color:"var(--text3)", fontSize:12, fontWeight:700 }}>{s.label}</div>
+              <div key={s.label} style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:14, padding:"14px", textAlign:"center" }}>
+                <div style={{ fontSize:22, marginBottom:3 }}>{s.emoji}</div>
+                <div style={{ fontWeight:900, fontSize:18, color:s.color }}>{s.value}</div>
+                <div style={{ color:"var(--text3)", fontSize:11, fontWeight:700 }}>{s.label}</div>
               </div>
             ))}
           </div>
-          <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:18, padding:"18px", marginBottom:20 }}>
-            <h3 style={{ fontWeight:900, fontSize:16, marginBottom:14 }}>📊 Прогрес карток</h3>
+          <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:16, padding:"16px", marginBottom:16 }}>
+            <h3 style={{ fontWeight:900, fontSize:14, marginBottom:12 }}>📊 Прогрес карток</h3>
             {["new","learning","reviewing","mastered"].map(lvl=>{
-              const count=cards.filter(c=>SRS.getLevel(c)===lvl).length;
-              const labels={new:"Нові",learning:"Вивчаю",reviewing:"Повторення",mastered:"Засвоєно"};
-              const colors={new:"var(--blue)",learning:"var(--orange)",reviewing:"var(--purple)",mastered:"var(--green)"};
+              const count=cards.filter((c:any)=>SRS.getLevel(c)===lvl).length;
+              const labels: any={new:"Нові",learning:"Вивчаю",reviewing:"Повторення",mastered:"Засвоєно"};
+              const colors: any={new:"var(--blue)",learning:"var(--orange)",reviewing:"var(--purple)",mastered:"var(--green)"};
               return (
-                <div key={lvl} style={{ marginBottom:10 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ fontWeight:700, fontSize:13, color:colors[lvl] }}>{labels[lvl]}</span>
-                    <span style={{ fontWeight:800, fontSize:13, color:"var(--text2)" }}>{count}</span>
+                <div key={lvl} style={{ marginBottom:9 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <span style={{ fontWeight:700, fontSize:12, color:colors[lvl] }}>{labels[lvl]}</span>
+                    <span style={{ fontWeight:800, fontSize:12, color:"var(--text2)" }}>{count}</span>
                   </div>
-                  <ProgressBar value={count} max={cards.length} color={colors[lvl]} h={6}/>
+                  <ProgressBar value={count} max={cards.length} color={colors[lvl]} h={5}/>
                 </div>
               );
             })}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <button onClick={()=>setScreen("pick_lang")} style={{ padding:"16px", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:14, fontWeight:800, fontSize:15, color:"var(--text1)", cursor:"pointer", textAlign:"left" }}>🌍 Змінити мову</button>
-            <button onClick={()=>setScreen("pick_goal")} style={{ padding:"16px", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:14, fontWeight:800, fontSize:15, color:"var(--text1)", cursor:"pointer", textAlign:"left" }}>🎯 Змінити ціль та рівень</button>
-            <button onClick={()=>{setUser(null);setLang(null);setCards([]);setXp(0);setHistory([]);setTotal({sessions:0,correct:0,total:0,minutes:0});saveData({});setScreen("welcome");}} style={{ padding:"16px", background:"var(--red)11", border:"1px solid var(--red)33", borderRadius:14, fontWeight:800, fontSize:15, color:"var(--red)", cursor:"pointer", textAlign:"left" }}>🚪 Вийти з акаунту</button>
+          <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+            <button onClick={()=>setScreen("pick_lang")} style={{ padding:"14px 16px", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:12, fontWeight:800, fontSize:14, color:"var(--text1)", cursor:"pointer", textAlign:"left" }}>🌍 Змінити мову</button>
+            <button onClick={()=>setScreen("pick_goal")} style={{ padding:"14px 16px", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:12, fontWeight:800, fontSize:14, color:"var(--text1)", cursor:"pointer", textAlign:"left" }}>🎯 Змінити ціль та рівень</button>
+            <button onClick={()=>{setUser(null);setLang(null);setCards([]);setXp(0);setHistory([]);setTotal({sessions:0,correct:0,total:0,minutes:0});saveData({});setScreen("welcome");}} style={{ padding:"14px 16px", background:"var(--red)11", border:"1px solid var(--red)33", borderRadius:12, fontWeight:800, fontSize:14, color:"var(--red)", cursor:"pointer", textAlign:"left" }}>🚪 Вийти з акаунту</button>
           </div>
         </div>
       )}
-
       {/* BOTTOM NAV */}
-      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"var(--bg2)", borderTop:"1px solid var(--border)", display:"flex", zIndex:50 }}>
+      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"var(--bg2)", borderTop:"1px solid var(--border)", display:"flex", zIndex:50, paddingBottom:"var(--safe-bottom)" }}>
         {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setScreen(t.id)} style={{ flex:1, padding:"12px 4px", background:"none", border:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:2, cursor:"pointer", color:screen===t.id?"var(--green)":"var(--text3)", transition:"color .15s" }}>
-            <span style={{ fontSize:18 }}>{t.icon}</span>
-            <span style={{ fontWeight:900, fontSize:9, textTransform:"uppercase", letterSpacing:.5 }}>{t.label}</span>
+          <button key={t.id} onClick={()=>setScreen(t.id)} style={{ flex:1, paddingTop:10, paddingBottom:10, background:"none", border:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:2, cursor:"pointer", color:screen===t.id?"var(--green)":"var(--text3)", transition:"color .15s", minHeight:56 }}>
+            <span style={{ fontSize:20 }}>{t.icon}</span>
+            <span style={{ fontWeight:900, fontSize:9, textTransform:"uppercase", letterSpacing:.5, lineHeight:1 }}>{t.label}</span>
           </button>
         ))}
       </div>
