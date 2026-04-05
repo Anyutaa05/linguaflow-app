@@ -1,10 +1,13 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5440/linguaflow
-    username: lingua_user
-    password: lingua_password
+    # URL бази даних з Neon.tech (ВАЖЛИВО: починається з jdbc:postgresql://)
+    url: jdbc:postgresql://ep-quiet-mouse-alw98xdc.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require
+    username: neondb_owner
+    password: npg_HVSae5F1ZEtx
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
+      # Це створить таблиці автоматично, якщо їх немає
       ddl-auto: update
     show-sql: true
     properties:
@@ -16,4 +19,6 @@ spring:
   flyway:
     enabled: false
 
-
+# Цей рядок потрібен для розгортання на Render (або працюватиме на 8080 локально)
+server:
+  port: ${PORT:8080}
