@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: linguaflow_db
+    environment:
+      POSTGRES_USER: lingua_user
+      POSTGRES_PASSWORD: lingua_password
+      POSTGRES_DB: linguaflow
+    ports:
+      - "5440:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
